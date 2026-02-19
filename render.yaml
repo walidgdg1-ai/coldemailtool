@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: cold-email-web
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    disk:
+      name: cold-email-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/data.db
+      - key: RUN_SCHEDULER
+        value: "false"
+      - key: BASE_URL
+        sync: false
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REDIRECT_URI
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+
+  - type: worker
+    name: cold-email-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node worker.js
+    disk:
+      name: cold-email-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/data.db
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REDIRECT_URI
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: BASE_URL
+        sync: false
