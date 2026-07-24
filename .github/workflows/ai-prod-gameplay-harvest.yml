@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        game_index: [17, 18, 19, 20]
+        game_index: [21, 22, 23, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -69,7 +69,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AI_PROD_HD_EXTRA_BATCH_17_20
+          name: AI_PROD_HD_EXTRA_BATCH_21_24
           path: |
             AI_PROD_HD_EXTRA_15_PER_GAME.zip
             FINAL_HD_EXTRA_PACKAGE/
