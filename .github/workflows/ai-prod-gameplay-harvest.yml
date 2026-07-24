@@ -1,9 +1,6 @@
 name: AI Prod Gameplay Screenshot Harvest
 
 on:
-  push:
-    branches:
-      - ai-prod-screenshot-harvest-20260724
   pull_request:
     branches:
       - main
@@ -14,8 +11,14 @@ permissions:
 
 jobs:
   harvest:
+    name: Harvest game ${{ matrix.game_index }}
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        game_index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
 
     steps:
       - name: Check out isolated branch
@@ -26,44 +29,86 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+      - name: Confirm FFmpeg
+        run: ffmpeg -version | head -n 1
 
       - name: Install harvesting dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install --upgrade "yt-dlp[default,curl-cffi]" pillow opencv-python-headless imagehash numpy
+          python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" pillow opencv-python-headless imagehash numpy
 
-      - name: Harvest 31 games at 15 frames each
+      - name: Harvest one game
         id: harvest
         continue-on-error: true
         env:
+          GAME_INDEX: ${{ matrix.game_index }}
           TARGET_PER_GAME: "15"
           CANDIDATE_INTERVAL_SECONDS: "3"
           MAX_SEGMENT_SECONDS: "420"
           SEARCH_RESULTS: "20"
         run: |
           set -o pipefail
-          python tools/harvest_game_screenshots.py 2>&1 | tee harvest.log
+          python tools/run_one_game_harvest.py 2>&1 | tee "harvest_${{ matrix.game_index }}.log"
 
-      - name: Record workflow outcome
+      - name: Record game outcome
         if: always()
         run: |
-          echo "Harvest step outcome: ${{ steps.harvest.outcome }}" | tee -a harvest.log
-          find GAMEPLAY_REFERENCE_BANK -maxdepth 2 -type f 2>/dev/null | sort | tee -a harvest.log || true
-          ls -lh AI_PROD_GAMEPLAY_REFERENCE_BANK.zip 2>/dev/null | tee -a harvest.log || true
+          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "harvest_${{ matrix.game_index }}.log"
+          find GAMEPLAY_REFERENCE_BANK -maxdepth 3 -type f 2>/dev/null | sort | tee -a "harvest_${{ matrix.game_index }}.log" || true
 
-      - name: Upload reference bank artifact
+      - name: Upload game result
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-${{ matrix.game_index }}
+          path: |
+            GAMEPLAY_REFERENCE_BANK/
+            harvest_${{ matrix.game_index }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+  package:
+    name: Package final reference bank
+    if: always()
+    needs: harvest
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out packager
+        uses: actions/checkout@v4
+
+      - name: Download all game artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: game-*
+          path: parts
+          merge-multiple: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install packaging dependency
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Assemble manifests, contact sheet and ZIP
+        run: python tools/package_game_harvests.py parts FINAL_REFERENCE_BANK | tee package.log
+
+      - name: Inspect packaged result
+        run: |
+          ls -lh AI_PROD_GAMEPLAY_REFERENCE_BANK.zip
+          find FINAL_REFERENCE_BANK/GAMEPLAY_REFERENCE_BANK -maxdepth 2 -type f | sort | tee -a package.log
+
+      - name: Upload final reference bank
         uses: actions/upload-artifact@v4
         with:
           name: AI_PROD_GAMEPLAY_REFERENCE_BANK
           path: |
             AI_PROD_GAMEPLAY_REFERENCE_BANK.zip
-            GAMEPLAY_REFERENCE_BANK/
-            harvest.log
-          if-no-files-found: warn
+            FINAL_REFERENCE_BANK/GAMEPLAY_REFERENCE_BANK/
+            package.log
+          if-no-files-found: error
           compression-level: 0
           retention-days: 14
