@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import re
 import time
+from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
 
 import ddg_image_discovery
 import run_hd_page_crawl_ddg as runner
@@ -66,10 +69,43 @@ def discover_images(game: dict, index: int) -> list[dict]:
     return rows
 
 
-# DuckDuckGo reliably serves roughly two HTML searches before throttling a
-# runner. Use them for the broad gallery query and an exact LaunchBox query,
-# because LaunchBox labels every asset and exposes high-resolution gameplay
-# screenshots directly. Later lower-priority queries may be throttled safely.
+def launchbox_pages(session, game_name: str) -> list[dict[str, str]]:
+    try:
+        response = session.get(
+            "https://gamesdb.launchbox-app.com/games/results/",
+            params={"id": game_name},
+            timeout=35,
+        )
+    except Exception as exc:
+        print(f"LAUNCHBOX_SEARCH_ERROR {game_name}: {exc}")
+        return []
+    if response.status_code != 200:
+        print(f"LAUNCHBOX_SEARCH_STATUS {response.status_code} {game_name}")
+        return []
+    soup = BeautifulSoup(response.text, "html.parser")
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for link in soup.find_all("a", href=True):
+        href = urljoin(response.url, link.get("href") or "").split("#")[0]
+        if not re.search(r"/games/(?:details|images)/\d+[-/]", href):
+            continue
+        title = link.get_text(" ", strip=True)
+        images_href = href.replace("/games/details/", "/games/images/")
+        if images_href in seen:
+            continue
+        seen.add(images_href)
+        rows.append({"url": images_href, "title": title or game_name})
+        if len(rows) >= 30:
+            break
+    print(f"LAUNCHBOX_RESULTS {len(rows)} {game_name}")
+    for row in rows[:8]:
+        print(f"LAUNCHBOX_ITEM {row['title'][:100]} | {row['url']}")
+    return rows
+
+
+# Add LaunchBox's own title-search results to the first broad gallery query.
+# This consumes no search-engine request, so DuckDuckGo can still spend its
+# second successful request on RAWG/IGN/review pages.
 base_web_search = runner.p.web_search
 boost_used = False
 
@@ -80,12 +116,7 @@ def boosted_web_search(session, query: str):
     if not boost_used:
         match = re.search(r'"([^"]+)"', query)
         if match:
-            game_name = match.group(1)
-            launchbox_query = (
-                f'site:gamesdb.launchbox-app.com/games/images "{game_name}" '
-                '"Screenshot - Gameplay"'
-            )
-            rows.extend(base_web_search(session, launchbox_query))
+            rows.extend(launchbox_pages(session, match.group(1)))
         boost_used = True
     unique = {}
     for row in rows:
