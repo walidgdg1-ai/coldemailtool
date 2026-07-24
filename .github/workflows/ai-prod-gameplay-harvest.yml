@@ -16,9 +16,9 @@ jobs:
     timeout-minutes: 40
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 8
       matrix:
-        game_index: [1]
+        game_index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
 
     steps:
       - name: Check out isolated branch
@@ -64,22 +64,25 @@ jobs:
           retention-days: 14
 
   package:
-    name: Package test reference bank
+    name: Package final reference bank
     if: always()
     needs: harvest
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Check out packager
         uses: actions/checkout@v4
 
-      - name: Download game artifact
+      - name: Download all game artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: game-*
           path: parts
           merge-multiple: false
+
+      - name: Remove intermediate candidate pools
+        run: find parts -type d -name candidates -prune -exec rm -rf '{}' +
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -89,10 +92,15 @@ jobs:
       - name: Install packaging dependency
         run: python -m pip install --disable-pip-version-check pillow
 
-      - name: Assemble test ZIP
+      - name: Assemble manifests, master contact sheet and ZIP
         run: python tools/package_game_harvests.py parts FINAL_REFERENCE_BANK | tee package.log
 
-      - name: Upload test reference bank
+      - name: Inspect packaged result
+        run: |
+          ls -lh AI_PROD_GAMEPLAY_REFERENCE_BANK.zip
+          find FINAL_REFERENCE_BANK/GAMEPLAY_REFERENCE_BANK -maxdepth 2 -type f | sort | tee -a package.log
+
+      - name: Upload final reference bank
         uses: actions/upload-artifact@v4
         with:
           name: AI_PROD_GAMEPLAY_REFERENCE_BANK
