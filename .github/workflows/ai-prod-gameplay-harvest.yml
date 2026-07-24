@@ -1,14 +1,10 @@
 name: AI Prod Gameplay Screenshot Harvest
-
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   harvest:
     name: HD priority hybrid extra game ${{ matrix.game_index }}
@@ -18,16 +14,14 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        game_index: [13, 14, 15, 16]
+        game_index: [17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
-      - name: Harvest frames
-        id: harvest
+      - run: python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
+      - id: harvest
         continue-on-error: true
         env:
           GAME_INDEX: ${{ matrix.game_index }}
@@ -40,13 +34,11 @@ jobs:
         run: |
           set -o pipefail
           python tools/run_hd_hybrid_priority.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
-      - name: Record outcome
-        if: always()
+      - if: always()
         run: |
           echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "hd_harvest_${{ matrix.game_index }}.log"
           find HD_EXTRA_REFERENCE_BANK -maxdepth 4 -type f 2>/dev/null | sort | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
-      - name: Upload result
-        if: always()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hd-extra-game-${{ matrix.game_index }}
@@ -56,9 +48,7 @@ jobs:
           if-no-files-found: warn
           compression-level: 0
           retention-days: 14
-
   package:
-    name: Package HD batch
     if: always()
     needs: harvest
     runs-on: ubuntu-latest
@@ -75,13 +65,11 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --disable-pip-version-check pillow
       - continue-on-error: true
-        run: |
-          set -o pipefail
-          python tools/package_hd_hybrid_results.py parts FINAL_HD_EXTRA_PACKAGE 2>&1 | tee package.log
+        run: python tools/package_hd_hybrid_results.py parts FINAL_HD_EXTRA_PACKAGE 2>&1 | tee package.log
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AI_PROD_HD_EXTRA_BATCH_13_16
+          name: AI_PROD_HD_EXTRA_BATCH_17_20
           path: |
             AI_PROD_HD_EXTRA_15_PER_GAME.zip
             FINAL_HD_EXTRA_PACKAGE/
