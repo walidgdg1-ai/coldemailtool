@@ -1,20 +1,14 @@
 name: Temporary AI Prod HD All-Game Harvest
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "HD_RUN_REQUEST.txt"
-  push:
-    branches: [main]
-    paths:
-      - "HD_RUN_REQUEST.txt"
-      - "tools/tmp_ai_prod_hd_harvest.py"
-      - ".github/workflows/tmp-ai-prod-hd-all.yml"
+  workflow_run:
+    workflows: ["AI Prod HD Extra Gameplay Harvest"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
   harvest:
@@ -29,6 +23,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -67,3 +63,63 @@ jobs:
           if-no-files-found: warn
           compression-level: 0
           retention-days: 14
+
+  package:
+    name: Package all HD game artifacts
+    needs: harvest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Download all game artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ai-prod-hd-game-*
+          path: collected
+          merge-multiple: true
+      - name: Build summary and ZIP
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('collected/HD_EXTRA_REFERENCE_BANK')
+          games = []
+          total = 0
+          if root.exists():
+              for d in sorted(x for x in root.iterdir() if x.is_dir()):
+                  imgs = sorted(d.glob('images_hd_extra/*'))
+                  games.append({'folder': d.name, 'selected_count': len(imgs)})
+                  total += len(imgs)
+          summary = {
+              'run_id': '${{ github.run_id }}',
+              'artifact_name': 'ai-prod-hd-all-games-final',
+              'completed_games': sum(1 for g in games if g['selected_count'] == 15),
+              'games_with_any_images': sum(1 for g in games if g['selected_count'] > 0),
+              'total_selected_images': total,
+              'games': games,
+          }
+          Path('collected/HD_HARVEST_SUMMARY.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          Path('HD_RUN_RESULT.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          print(json.dumps(summary, indent=2))
+          PY
+          cd collected
+          zip -0 -r ../AI_PROD_HD_EXTRA_31_GAMES.zip .
+      - name: Upload final combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-prod-hd-all-games-final
+          path: |
+            AI_PROD_HD_EXTRA_31_GAMES.zip
+            collected/HD_HARVEST_SUMMARY.json
+          compression-level: 0
+          retention-days: 14
+      - name: Publish run pointer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HD_RUN_RESULT.json
+          git commit -m "Publish temporary HD harvest result pointer [skip ci]" || exit 0
+          git push origin HEAD:main
