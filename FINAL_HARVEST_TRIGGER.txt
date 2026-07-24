@@ -1,2 +1,3 @@
 Trigger final 31-game HD screenshot harvest.
-Requested 2026-07-24T16:44:00+02:00.
+Requested 2026-07-24T16:50:00+02:00.
+Startup pointer required.
