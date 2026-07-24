@@ -1,1 +1,2 @@
 Trigger native HD gameplay harvest after draft PR creation.
+Run all 31 games at 2026-07-24T13:17:30+02:00.
