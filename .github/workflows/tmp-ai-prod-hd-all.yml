@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   actions: read
+  issues: write
 
 jobs:
   harvest:
@@ -103,6 +104,13 @@ jobs:
           }
           Path('collected/HD_HARVEST_SUMMARY.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
           Path('HD_RUN_RESULT.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          Path('HD_RUN_COMMENT.txt').write_text(
+              'HD_HARVEST_RESULT run_id=' + summary['run_id'] +
+              ' artifact=' + summary['artifact_name'] +
+              ' completed_games=' + str(summary['completed_games']) +
+              ' total_selected_images=' + str(summary['total_selected_images']),
+              encoding='utf-8'
+          )
           print(json.dumps(summary, indent=2))
           PY
           cd collected
@@ -116,10 +124,15 @@ jobs:
             collected/HD_HARVEST_SUMMARY.json
           compression-level: 0
           retention-days: 14
+      - name: Publish result to PR 18
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/18/comments -f body="$(cat HD_RUN_COMMENT.txt)" || true
       - name: Publish run pointer
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add HD_RUN_RESULT.json
           git commit -m "Publish temporary HD harvest result pointer [skip ci]" || exit 0
-          git push origin HEAD:main
+          git push origin HEAD:main || true
