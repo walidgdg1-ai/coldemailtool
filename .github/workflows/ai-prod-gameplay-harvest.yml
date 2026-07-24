@@ -1,0 +1,67 @@
+name: AI Prod Gameplay Screenshot Harvest
+
+on:
+  push:
+    branches:
+      - ai-prod-screenshot-harvest-20260724
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Check out isolated branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install harvesting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade "yt-dlp[default,curl-cffi]" pillow opencv-python-headless imagehash numpy
+
+      - name: Harvest 31 games at 15 frames each
+        id: harvest
+        continue-on-error: true
+        env:
+          TARGET_PER_GAME: "15"
+          CANDIDATE_INTERVAL_SECONDS: "5"
+          MAX_SEGMENT_SECONDS: "1500"
+          SEARCH_RESULTS: "20"
+        run: |
+          set -o pipefail
+          python tools/harvest_game_screenshots.py 2>&1 | tee harvest.log
+
+      - name: Record workflow outcome
+        if: always()
+        run: |
+          echo "Harvest step outcome: ${{ steps.harvest.outcome }}" | tee -a harvest.log
+          find GAMEPLAY_REFERENCE_BANK -maxdepth 2 -type f 2>/dev/null | sort | tee -a harvest.log || true
+          ls -lh AI_PROD_GAMEPLAY_REFERENCE_BANK.zip 2>/dev/null | tee -a harvest.log || true
+
+      - name: Upload reference bank artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI_PROD_GAMEPLAY_REFERENCE_BANK
+          path: |
+            AI_PROD_GAMEPLAY_REFERENCE_BANK.zip
+            GAMEPLAY_REFERENCE_BANK/
+            harvest.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
