@@ -2,6 +2,7 @@
 """Combine exact-title image discovery with exact-gallery page crawling."""
 from __future__ import annotations
 
+import re
 import time
 
 import ddg_image_discovery
@@ -65,6 +66,34 @@ def discover_images(game: dict, index: int) -> list[dict]:
     return rows
 
 
+# DuckDuckGo reliably serves roughly two HTML searches before throttling a
+# runner. Use them for the broad gallery query and an exact LaunchBox query,
+# because LaunchBox labels every asset and exposes high-resolution gameplay
+# screenshots directly. Later lower-priority queries may be throttled safely.
+base_web_search = runner.p.web_search
+boost_used = False
+
+
+def boosted_web_search(session, query: str):
+    global boost_used
+    rows = list(base_web_search(session, query))
+    if not boost_used:
+        match = re.search(r'"([^"]+)"', query)
+        if match:
+            game_name = match.group(1)
+            launchbox_query = (
+                f'site:gamesdb.launchbox-app.com/games/images "{game_name}" '
+                '"Screenshot - Gameplay"'
+            )
+            rows.extend(base_web_search(session, launchbox_query))
+        boost_used = True
+    unique = {}
+    for row in rows:
+        unique.setdefault(row.get("url", ""), row)
+    return [row for url, row in unique.items() if url]
+
+
+runner.p.web_search = boosted_web_search
 runner.p.h.discover_original = discover_images
 
 if __name__ == "__main__":
