@@ -1,0 +1,65 @@
+name: Temporary AI Prod HD All-Game Harvest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "HD_RUN_REQUEST.txt"
+      - "tools/tmp_ai_prod_hd_harvest.py"
+      - ".github/workflows/tmp-ai-prod-hd-all.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: HD game ${{ matrix.game_index }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        game_index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" pillow opencv-python-headless imagehash numpy
+      - name: Harvest 15 additional HD gameplay frames
+        id: harvest
+        continue-on-error: true
+        env:
+          GAME_INDEX: ${{ matrix.game_index }}
+          TARGET_PER_GAME: "15"
+          SEARCH_RESULTS: "30"
+          MAX_VIDEOS: "5"
+          SEGMENT_SECONDS: "360"
+          MIN_WIDTH: "960"
+          MIN_HEIGHT: "540"
+        run: |
+          set -o pipefail
+          python tools/tmp_ai_prod_hd_harvest.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
+      - name: Record files
+        if: always()
+        run: |
+          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "hd_harvest_${{ matrix.game_index }}.log"
+          find HD_EXTRA_REFERENCE_BANK -maxdepth 4 -type f 2>/dev/null | sort | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
+      - name: Upload game artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-prod-hd-game-${{ matrix.game_index }}
+          path: |
+            HD_EXTRA_REFERENCE_BANK/
+            hd_harvest_${{ matrix.game_index }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
