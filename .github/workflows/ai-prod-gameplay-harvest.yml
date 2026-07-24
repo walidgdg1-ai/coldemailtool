@@ -11,9 +11,9 @@ permissions:
 
 jobs:
   harvest:
-    name: HD combined extra game ${{ matrix.game_index }}
+    name: HD hybrid extra game ${{ matrix.game_index }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -31,9 +31,9 @@ jobs:
 
       - name: Install harvesting dependencies
         run: |
-          python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
+          python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
 
-      - name: Harvest trusted high-resolution gameplay frames
+      - name: Harvest gallery-first hybrid gameplay frames
         id: harvest
         continue-on-error: true
         env:
@@ -43,9 +43,10 @@ jobs:
           MIN_NATIVE_H: "500"
           FALLBACK_W: "600"
           FALLBACK_H: "330"
+          YT_MAX_VIDEOS: "36"
         run: |
           set -o pipefail
-          python tools/run_hd_images_plus_pages.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
+          python tools/run_hd_hybrid.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
 
       - name: Record game outcome
         if: always()
