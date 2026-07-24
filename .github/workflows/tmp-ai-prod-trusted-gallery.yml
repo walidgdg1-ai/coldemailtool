@@ -1,0 +1,143 @@
+name: Temporary AI Prod Trusted Gallery Harvest
+
+on:
+  workflow_run:
+    workflows: ["AI Prod Gameplay Screenshot Harvest", "AI Prod HD Extra Gameplay Harvest"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish run id
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/18/comments \
+            -f body="HD_GALLERY_HARVEST_STARTED run_id=${{ github.run_id }}" || true
+
+  harvest:
+    needs: announce
+    name: Trusted gallery game ${{ matrix.game_index }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 16
+      matrix:
+        game_index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install image validation runtime
+        run: |
+          python -m pip install --disable-pip-version-check requests pillow opencv-python-headless imagehash numpy
+      - name: Harvest trusted HD gameplay screenshots
+        id: harvest
+        continue-on-error: true
+        env:
+          GAME_INDEX: ${{ matrix.game_index }}
+          TARGET_PER_GAME: "15"
+          MIN_WIDTH: "960"
+          MIN_HEIGHT: "540"
+        run: |
+          set -o pipefail
+          PYTHONPATH=tools python -c "import sitecustomize; sitecustomize.fallback()" 2>&1 | tee "gallery_harvest_${{ matrix.game_index }}.log"
+      - name: Record files
+        if: always()
+        run: |
+          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "gallery_harvest_${{ matrix.game_index }}.log"
+          find HD_EXTRA_REFERENCE_BANK -maxdepth 4 -type f 2>/dev/null | sort | tee -a "gallery_harvest_${{ matrix.game_index }}.log" || true
+      - name: Upload game artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-prod-gallery-game-${{ matrix.game_index }}
+          path: |
+            HD_EXTRA_REFERENCE_BANK/
+            gallery_harvest_${{ matrix.game_index }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+  package:
+    needs: harvest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Download all game artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ai-prod-gallery-game-*
+          path: collected
+          merge-multiple: true
+      - name: Build summary and ZIP
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('collected/HD_EXTRA_REFERENCE_BANK')
+          games = []
+          total = 0
+          if root.exists():
+              for d in sorted(x for x in root.iterdir() if x.is_dir()):
+                  imgs = sorted(d.glob('images_hd_extra/*'))
+                  games.append({'folder': d.name, 'selected_count': len(imgs)})
+                  total += len(imgs)
+          summary = {
+              'run_id': '${{ github.run_id }}',
+              'artifact_name': 'ai-prod-trusted-gallery-final',
+              'completed_games': sum(1 for g in games if g['selected_count'] == 15),
+              'games_with_any_images': sum(1 for g in games if g['selected_count'] > 0),
+              'total_selected_images': total,
+              'games': games,
+          }
+          Path('collected/HD_GALLERY_HARVEST_SUMMARY.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          Path('HD_GALLERY_RUN_RESULT.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          Path('HD_GALLERY_COMMENT.txt').write_text(
+              'HD_GALLERY_HARVEST_RESULT run_id=' + summary['run_id'] +
+              ' artifact=' + summary['artifact_name'] +
+              ' completed_games=' + str(summary['completed_games']) +
+              ' games_with_any_images=' + str(summary['games_with_any_images']) +
+              ' total_selected_images=' + str(summary['total_selected_images']),
+              encoding='utf-8'
+          )
+          print(json.dumps(summary, indent=2))
+          PY
+          cd collected
+          zip -0 -r ../AI_PROD_TRUSTED_GALLERY_HD_EXTRA.zip .
+      - name: Upload final combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-prod-trusted-gallery-final
+          path: |
+            AI_PROD_TRUSTED_GALLERY_HD_EXTRA.zip
+            collected/HD_GALLERY_HARVEST_SUMMARY.json
+          compression-level: 0
+          retention-days: 14
+      - name: Publish result comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/18/comments -f body="$(cat HD_GALLERY_COMMENT.txt)" || true
+      - name: Publish result pointer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HD_GALLERY_RUN_RESULT.json
+          git commit -m "Publish trusted gallery harvest result [skip ci]" || exit 0
+          git push origin HEAD:main || true
