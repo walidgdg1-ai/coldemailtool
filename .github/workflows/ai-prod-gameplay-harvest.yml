@@ -1,71 +1,99 @@
 name: AI Prod Gameplay Screenshot Harvest
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "tools/run_hd_page_crawl.py"
-      - "tools/harvest_hd_extra_frames.py"
-      - "HD_RUN_REQUEST.txt"
+  schedule:
+    - cron: "20 14 24 7 *"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: ai-prod-scheduled-gallery-harvest
+  cancel-in-progress: false
 
 jobs:
   harvest:
-    name: HD page-crawl extra game ${{ matrix.game_index }}
+    name: HD trusted-gallery 31-game harvest
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        game_index: [2]
+    timeout-minutes: 60
 
     steps:
-      - name: Check out isolated branch
+      - name: Check out main
         uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Stop if this annual trigger already completed
+        id: guard
+        run: |
+          if [ -f HD_SCHEDULED_GALLERY_RESULT.json ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Python
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install harvesting dependencies
+        if: steps.guard.outputs.skip != 'true'
         run: |
           python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
 
-      - name: Harvest trusted high-resolution gameplay frames
+      - name: Harvest 15 additional HD gameplay screenshots for all 31 games
+        if: steps.guard.outputs.skip != 'true'
         id: harvest
         continue-on-error: true
         env:
-          GAME_INDEX: ${{ matrix.game_index }}
           TARGET_PER_GAME: "15"
           MIN_WIDTH: "960"
           MIN_HEIGHT: "540"
         run: |
           set -o pipefail
-          python tools/run_hd_page_crawl.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
+          python tools/run_hd_page_crawl.py 2>&1 | tee hd_scheduled_harvest.log
 
-      - name: Record game outcome
-        if: always()
+      - name: Build package and result pointer
+        if: steps.guard.outputs.skip != 'true'
         run: |
-          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "hd_harvest_${{ matrix.game_index }}.log"
-          find HD_EXTRA_REFERENCE_BANK -maxdepth 4 -type f 2>/dev/null | sort | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
-          cat HD_PARALLEL_GALLERY_SUMMARY.json 2>/dev/null | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary_path = Path('HD_PARALLEL_GALLERY_SUMMARY.json')
+          if summary_path.exists():
+              summary = json.loads(summary_path.read_text(encoding='utf-8'))
+          else:
+              summary = {'completed_games': 0, 'games_with_any_images': 0, 'total_selected_images': 0, 'games': []}
+          pointer = {
+              'run_id': '${{ github.run_id }}',
+              'artifact_name': 'ai-prod-hd-extra-31-games-final',
+              **summary,
+          }
+          Path('HD_SCHEDULED_GALLERY_RESULT.json').write_text(json.dumps(pointer, indent=2), encoding='utf-8')
+          print(json.dumps(pointer, indent=2))
+          PY
+          zip -0 -r AI_PROD_HD_EXTRA_31_GAMES.zip HD_EXTRA_REFERENCE_BANK HD_PARALLEL_GALLERY_SUMMARY.json gallery_harvest_*.log hd_scheduled_harvest.log
 
-      - name: Upload game result
-        if: always()
+      - name: Upload final combined artifact
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: hd-extra-game-${{ matrix.game_index }}
+          name: ai-prod-hd-extra-31-games-final
           path: |
-            HD_EXTRA_REFERENCE_BANK/
-            HD_PARALLEL_GALLERY_SUMMARY.json
-            gallery_harvest_*.log
-            hd_harvest_${{ matrix.game_index }}.log
-          if-no-files-found: warn
+            AI_PROD_HD_EXTRA_31_GAMES.zip
+            HD_SCHEDULED_GALLERY_RESULT.json
+          if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      - name: Publish result pointer
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HD_SCHEDULED_GALLERY_RESULT.json
+          git commit -m "Publish scheduled gallery harvest result [skip ci]" || exit 0
+          git push origin HEAD:main
