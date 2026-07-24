@@ -16,9 +16,9 @@ jobs:
     timeout-minutes: 40
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 3
       matrix:
-        game_index: [9, 20]
+        game_index: [8, 9, 20]
 
     steps:
       - name: Check out isolated branch
