@@ -41,8 +41,8 @@ jobs:
         continue-on-error: true
         env:
           TARGET_PER_GAME: "15"
-          CANDIDATE_INTERVAL_SECONDS: "5"
-          MAX_SEGMENT_SECONDS: "1500"
+          CANDIDATE_INTERVAL_SECONDS: "3"
+          MAX_SEGMENT_SECONDS: "420"
           SEARCH_RESULTS: "20"
         run: |
           set -o pipefail
