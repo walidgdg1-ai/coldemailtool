@@ -1,6 +1,10 @@
 name: AI Prod Final Screenshot Harvest Command
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "FINAL_HARVEST_TRIGGER.txt"
   issue_comment:
     types: [created]
 
@@ -16,14 +20,15 @@ concurrency:
 jobs:
   harvest:
     if: >-
-      github.event.issue.pull_request &&
-      github.event.comment.body == 'RUN_AI_PROD_FINAL_HARVEST_31'
+      github.event_name == 'push' ||
+      (github.event.issue.pull_request && github.event.comment.body == 'RUN_AI_PROD_FINAL_HARVEST_31')
     name: Build 31-game HD screenshot pack
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
       - name: Announce run id
+        if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -95,6 +100,7 @@ jobs:
           retention-days: 14
 
       - name: Publish result comment
+        if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
