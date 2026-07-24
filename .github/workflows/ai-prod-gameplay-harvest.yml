@@ -1,0 +1,71 @@
+name: AI Prod Gameplay Screenshot Harvest
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/run_hd_page_crawl.py"
+      - "tools/harvest_hd_extra_frames.py"
+      - "HD_RUN_REQUEST.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: HD page-crawl extra game ${{ matrix.game_index }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        game_index: [2]
+
+    steps:
+      - name: Check out isolated branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install harvesting dependencies
+        run: |
+          python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
+
+      - name: Harvest trusted high-resolution gameplay frames
+        id: harvest
+        continue-on-error: true
+        env:
+          GAME_INDEX: ${{ matrix.game_index }}
+          TARGET_PER_GAME: "15"
+          MIN_WIDTH: "960"
+          MIN_HEIGHT: "540"
+        run: |
+          set -o pipefail
+          python tools/run_hd_page_crawl.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
+
+      - name: Record game outcome
+        if: always()
+        run: |
+          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "hd_harvest_${{ matrix.game_index }}.log"
+          find HD_EXTRA_REFERENCE_BANK -maxdepth 4 -type f 2>/dev/null | sort | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
+          cat HD_PARALLEL_GALLERY_SUMMARY.json 2>/dev/null | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
+
+      - name: Upload game result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hd-extra-game-${{ matrix.game_index }}
+          path: |
+            HD_EXTRA_REFERENCE_BANK/
+            HD_PARALLEL_GALLERY_SUMMARY.json
+            gallery_harvest_*.log
+            hd_harvest_${{ matrix.game_index }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
