@@ -12,9 +12,9 @@ jobs:
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 3
       matrix:
-        game_index: [25, 26, 27, 28]
+        game_index: [29, 30, 31]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -69,7 +69,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AI_PROD_HD_EXTRA_BATCH_25_28
+          name: AI_PROD_HD_EXTRA_BATCH_29_31
           path: |
             AI_PROD_HD_EXTRA_15_PER_GAME.zip
             FINAL_HD_EXTRA_PACKAGE/
