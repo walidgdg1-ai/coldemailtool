@@ -1,2 +1,3 @@
-Run requested 2026-07-24T16:12:00+02:00
+Run requested 2026-07-24T16:13:00+02:00
 Target: 31 games x 15 additional HD gameplay screenshots.
+Synchronization: workflow present on base and PR open.
