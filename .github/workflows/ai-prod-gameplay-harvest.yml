@@ -16,9 +16,9 @@ jobs:
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 4
       matrix:
-        game_index: [2]
+        game_index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
 
     steps:
       - name: Check out isolated branch
@@ -62,6 +62,58 @@ jobs:
           path: |
             HD_EXTRA_REFERENCE_BANK/
             hd_harvest_${{ matrix.game_index }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+  package:
+    name: Package 31-game HD extra bank
+    if: always()
+    needs: harvest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out packager
+        uses: actions/checkout@v4
+
+      - name: Download all per-game artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: hd-extra-game-*
+          path: parts
+          merge-multiple: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install packaging dependency
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Assemble and validate package
+        id: package
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python tools/package_hd_hybrid_results.py parts FINAL_HD_EXTRA_PACKAGE 2>&1 | tee package.log
+
+      - name: Inspect package
+        if: always()
+        run: |
+          ls -lh AI_PROD_HD_EXTRA_15_PER_GAME.zip 2>/dev/null || true
+          cat FINAL_HD_EXTRA_PACKAGE/MASTER_HD_EXTRA_MANIFEST.json 2>/dev/null || true
+
+      - name: Upload complete or diagnostic package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI_PROD_HD_EXTRA_15_PER_GAME
+          path: |
+            AI_PROD_HD_EXTRA_15_PER_GAME.zip
+            FINAL_HD_EXTRA_PACKAGE/
+            package.log
           if-no-files-found: warn
           compression-level: 0
           retention-days: 14
