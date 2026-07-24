@@ -1,10 +1,6 @@
 name: AI Prod Gameplay Screenshot Harvest
 
 on:
-  push:
-    branches:
-      - ai-prod-screenshot-harvest-20260724
-      - ai-prod-screenshot-repairs-20260724
   pull_request:
     branches:
       - main
@@ -15,14 +11,14 @@ permissions:
 
 jobs:
   harvest:
-    name: Repair game ${{ matrix.game_index }}
+    name: HD extra game ${{ matrix.game_index }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 1
       matrix:
-        game_index: [8, 9, 20]
+        game_index: [2]
 
     steps:
       - name: Check out isolated branch
@@ -35,61 +31,39 @@ jobs:
 
       - name: Install harvesting dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" requests pillow opencv-python-headless imagehash numpy
 
-      - name: Harvest repaired game
+      - name: Harvest native HD frames
         id: harvest
         continue-on-error: true
         env:
           GAME_INDEX: ${{ matrix.game_index }}
           TARGET_PER_GAME: "15"
-          SEARCH_RESULTS: "100"
-          MAX_VIDEOS: "30"
+          SEARCH_RESULTS: "35"
+          MAX_VIDEOS: "4"
+          SEGMENT_SECONDS: "420"
+          MIN_WIDTH: "960"
+          MIN_HEIGHT: "540"
         run: |
           set -o pipefail
-          python tools/harvest_repair_queries.py 2>&1 | tee "harvest_${{ matrix.game_index }}.log"
+          python tools/harvest_hd_extra_frames.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
 
       - name: Record game outcome
         if: always()
         run: |
-          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "harvest_${{ matrix.game_index }}.log"
-          find GAMEPLAY_REFERENCE_BANK -maxdepth 3 -type f 2>/dev/null | sort | tee -a "harvest_${{ matrix.game_index }}.log" || true
+          echo "Harvest outcome: ${{ steps.harvest.outcome }}" | tee -a "hd_harvest_${{ matrix.game_index }}.log"
+          find HD_EXTRA_REFERENCE_BANK -maxdepth 4 -type f 2>/dev/null | sort | tee -a "hd_harvest_${{ matrix.game_index }}.log" || true
 
-      - name: Upload repaired game result
+      - name: Upload game result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: repaired-game-${{ matrix.game_index }}
+          name: hd-extra-game-${{ matrix.game_index }}
           path: |
-            GAMEPLAY_REFERENCE_BANK/
-            harvest_${{ matrix.game_index }}.log
+            HD_EXTRA_REFERENCE_BANK/
+            hd_harvest_${{ matrix.game_index }}.log
           if-no-files-found: warn
-          compression-level: 0
-          retention-days: 14
-
-  package:
-    name: Package repaired games
-    if: always()
-    needs: harvest
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Download repaired artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: repaired-game-*
-          path: repaired-parts
-          merge-multiple: false
-
-      - name: Remove candidate pools
-        run: find repaired-parts -type d -name candidates -prune -exec rm -rf '{}' +
-
-      - name: Upload repair bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: AI_PROD_GAMEPLAY_REPAIRS
-          path: repaired-parts/
-          if-no-files-found: error
           compression-level: 0
           retention-days: 14
