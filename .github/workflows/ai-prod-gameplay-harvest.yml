@@ -1,16 +1,19 @@
-name: AI Prod Gameplay Screenshot Harvest
+name: AI Prod Scheduled Final Harvest
 
 on:
-  schedule:
-    - cron: "33 14 24 7 *"
-    - cron: "*/5 * * * *"
+  workflow_run:
+    workflows: ["AI Prod Gameplay Screenshot Harvest"]
+    types: [completed]
   workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: ai-prod-scheduled-gallery-harvest
+  group: ai-prod-final-gallery-harvest
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +28,7 @@ jobs:
         with:
           ref: main
 
-      - name: Stop if this annual trigger already completed
+      - name: Stop if final artifact already completed
         id: guard
         run: |
           if [ -f HD_SCHEDULED_GALLERY_RESULT.json ]; then
@@ -45,7 +48,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
 
-      - name: Harvest 15 additional HD gameplay screenshots for all 31 games
+      - name: Harvest 15 additional gameplay screenshots for all 31 games
         if: steps.guard.outputs.skip != 'true'
         id: harvest
         continue-on-error: true
