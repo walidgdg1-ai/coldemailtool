@@ -1,2 +1,2 @@
-Run requested 2026-07-24T13:21:00+02:00
-Target: 31 games x 15 additional HD gameplay frames.
+Run requested 2026-07-24T16:12:00+02:00
+Target: 31 games x 15 additional HD gameplay screenshots.
