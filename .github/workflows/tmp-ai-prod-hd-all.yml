@@ -1,6 +1,10 @@
 name: Temporary AI Prod HD All-Game Harvest
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "HD_RUN_REQUEST.txt"
   push:
     branches: [main]
     paths:
