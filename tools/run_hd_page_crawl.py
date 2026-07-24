@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Supplement strict image discovery by deeply crawling trusted game galleries."""
+"""Supplement strict image discovery by deeply crawling exact-title game galleries."""
 from __future__ import annotations
 
 import base64
@@ -28,8 +28,8 @@ h.TRUSTED_PAGE_DOMAINS.update({
     "giantbomb.com", "gamepressure.com", "thegamesdb.net", "launchbox-app.com",
 })
 h.TRUSTED_IMAGE_DOMAINS.update({
-    "www.playstationtrophies.org", "media.playstationtrophies.org",
-    "www.xboxachievements.com", "media.xboxachievements.com", "images.uvlist.net",
+    "playstationtrophies.org", "media.playstationtrophies.org",
+    "xboxachievements.com", "media.xboxachievements.com", "images.uvlist.net",
     "cdn.exophase.com", "images.gamersyde.com", "image.jeuxvideo.com",
 })
 
@@ -102,6 +102,19 @@ def fetch_html(session: requests.Session, page_url: str) -> tuple[str, Beautiful
     return r.url, BeautifulSoup(r.text, "html.parser"), r.text
 
 
+def page_identity(soup: BeautifulSoup, final_page: str) -> str:
+    bits = [final_page]
+    if soup.title:
+        bits.append(soup.title.get_text(" ", strip=True))
+    for selector in (
+        'meta[property="og:title"]', 'meta[name="twitter:title"]',
+        'link[rel="canonical"]',
+    ):
+        for node in soup.select(selector):
+            bits.append(node.get("content") or node.get("href") or "")
+    return " ".join(bits)
+
+
 def page_images(
     session: requests.Session,
     page_url: str,
@@ -113,8 +126,16 @@ def page_images(
         return []
     final_page, soup, raw_html = fetched
     document_title = soup.title.get_text(" ", strip=True) if soup.title else page_title
-    candidates: list[tuple[str, str]] = []
+    identity = page_identity(soup, final_page)
+    # Critical anti-contamination lock: the fetched page itself—not the parent
+    # query—must identify the requested game.
+    if not h.exact_game_match(CURRENT_GAME, identity):
+        print(f"PAGE_REJECT_IDENTITY {final_page} | {document_title[:120]}")
+        return []
+    if h.reject_context(identity):
+        return []
 
+    candidates: list[tuple[str, str]] = []
     for meta in soup.select(
         'meta[property="og:image"], meta[name="twitter:image"], '
         'meta[itemprop="image"], meta[property="og:image:secure_url"]'
@@ -125,10 +146,7 @@ def page_images(
 
     for tag in soup.find_all(["img", "source"]):
         alt = " ".join(
-            filter(
-                None,
-                [tag.get("alt"), tag.get("title"), tag.get("aria-label")],
-            )
+            filter(None, [tag.get("alt"), tag.get("title"), tag.get("aria-label")])
         )
         for attr in (
             "src", "data-src", "data-original", "data-lazy-src", "data-image",
@@ -167,20 +185,29 @@ def page_images(
         if not url.startswith("http") or url in seen:
             continue
         seen.add(url)
-        combined = " ".join([document_title, context, final_page, url, query])
+        asset_context = " ".join([identity, context, final_page, url])
         if BAD_ASSET.search(url + " " + context):
             continue
-        if h.reject_context(combined) or not h.exact_game_match(CURRENT_GAME, combined):
+        if h.reject_context(asset_context):
             continue
         rows.append({
             "image_url": url,
             "page_url": final_page,
             "title": context or document_title,
             "query": query,
-            "discovery_score": 150.0 + (22.0 if h.gameplay_context(combined) else 0.0),
+            "discovery_score": 150.0 + (22.0 if h.gameplay_context(asset_context) else 0.0),
         })
     print(f"PAGE_IMAGES {len(rows)} {final_page}")
     return rows
+
+
+def gallery_anchor(path: str) -> str:
+    lowered = path.lower()
+    for marker in ("/screenshots", "/screenshot", "/gallery", "/galleries", "/media", "/images"):
+        pos = lowered.find(marker)
+        if pos >= 0:
+            return path[: pos + len(marker)].rstrip("/")
+    return path.rstrip("/")
 
 
 def related_gallery_pages(
@@ -193,7 +220,12 @@ def related_gallery_pages(
     if not fetched:
         return []
     final_page, soup, _ = fetched
-    parent_host = urlparse(final_page).netloc.lower().removeprefix("www.")
+    identity = page_identity(soup, final_page)
+    if not h.exact_game_match(CURRENT_GAME, identity):
+        return []
+    parsed_parent = urlparse(final_page)
+    parent_host = parsed_parent.netloc.lower().removeprefix("www.")
+    anchor = gallery_anchor(parsed_parent.path)
     rows: list[dict[str, str]] = []
     seen: set[str] = set()
     for link in soup.find_all("a", href=True):
@@ -203,24 +235,28 @@ def related_gallery_pages(
             continue
         if IMAGE_EXT.search(href):
             continue
-        host = urlparse(href).netloc.lower().removeprefix("www.")
-        if host != parent_host and not h.domain_allowed(href, h.TRUSTED_PAGE_DOMAINS):
+        parsed_child = urlparse(href)
+        child_host = parsed_child.netloc.lower().removeprefix("www.")
+        # Do not leave the source site while traversing a gallery.
+        if child_host != parent_host:
             continue
         text = " ".join(
             filter(None, [link.get_text(" ", strip=True), link.get("title"), link.get("aria-label")])
         )
-        context = " ".join([href, text, parent_title, query])
-        if BAD_ASSET.search(context):
+        link_context = " ".join([href, text])
+        if BAD_ASSET.search(link_context) or not GALLERY_LINK.search(link_context):
             continue
-        if not GALLERY_LINK.search(href + " " + text):
-            continue
-        # Child screenshot/detail links often omit the game title, so the exact
-        # title match may come from the trusted parent gallery context.
-        if not h.exact_game_match(CURRENT_GAME, context):
+        child_path = parsed_child.path.rstrip("/")
+        same_gallery_tree = bool(anchor and child_path.startswith(anchor))
+        names_game_itself = h.exact_game_match(CURRENT_GAME, link_context)
+        # A child is valid only if it stays under the exact gallery path, or if
+        # its own URL/text independently names the game. Parent query/title alone
+        # can never authorize an unrelated navigation link.
+        if not (same_gallery_tree or names_game_itself):
             continue
         seen.add(href)
         rows.append({"url": href, "title": text or parent_title, "query": query})
-        if len(rows) >= 50:
+        if len(rows) >= 60:
             break
     print(f"RELATED_PAGES {len(rows)} {final_page}")
     return rows
@@ -258,7 +294,7 @@ def discover_pages(game: dict[str, Any], index: int) -> list[dict[str, Any]]:
     for query in queries:
         for row in web_search(session, query):
             url = row["url"].split("#")[0]
-            context = " ".join([row["title"], url, query])
+            context = " ".join([row["title"], url])
             if h.blocked(url) or not h.domain_allowed(url, h.TRUSTED_PAGE_DOMAINS):
                 continue
             if not h.exact_game_match(game, context) or h.reject_context(context):
@@ -271,7 +307,7 @@ def discover_pages(game: dict[str, Any], index: int) -> list[dict[str, Any]]:
     print(f"DISCOVERED_PAGES {len(seed_pages)} for {name}")
     queue: deque[tuple[dict[str, str], int]] = deque((page, 0) for page in seed_pages.values())
     visited: set[str] = set()
-    while queue and len(visited) < 85 and len(found) < 320:
+    while queue and len(visited) < 90 and len(found) < 340:
         page, depth = queue.popleft()
         url = page["url"]
         if url in visited:
