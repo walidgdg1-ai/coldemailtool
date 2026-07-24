@@ -1,0 +1,51 @@
+name: Temporary Gallery Harvest Orchestrator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ORCHESTRATE_GALLERY.txt"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Cancel slow temporary video harvest runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list --repo "${{ github.repository }}" --workflow "Temporary AI Prod HD All-Game Harvest" \
+            --limit 20 --json databaseId,status \
+            --jq '.[] | select(.status == "in_progress" or .status == "queued") | .databaseId' \
+            | while read -r run_id; do
+                [ -n "$run_id" ] && gh run cancel "$run_id" --repo "${{ github.repository }}" || true
+              done
+      - name: Dispatch trusted gallery workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run "tmp-ai-prod-trusted-gallery.yml" --repo "${{ github.repository }}" --ref main
+      - name: Resolve launched run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 12
+          gh run list --repo "${{ github.repository }}" --workflow "tmp-ai-prod-trusted-gallery.yml" \
+            --limit 1 --json databaseId,status,conclusion,url,createdAt > GALLERY_LAUNCH_STATUS.json
+          cat GALLERY_LAUNCH_STATUS.json
+      - name: Publish launch pointer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add GALLERY_LAUNCH_STATUS.json
+          git commit -m "Publish gallery harvest launch pointer [skip ci]" || exit 0
+          git push origin HEAD:main
