@@ -31,10 +31,13 @@ def rss_web_search(session: requests.Session, query: str):
     rows = []
     for item in root.findall(".//item"):
         title = (item.findtext("title") or "").strip()
-        link = (item.findtext("link") or "").strip()
+        raw_link = (item.findtext("link") or "").strip()
+        link = p.decode_bing_url(raw_link)
         if link.startswith("http"):
             rows.append({"url": link, "title": title})
     print(f"RSS_RESULTS {len(rows)} {query}")
+    for row in rows[:4]:
+        print(f"RSS_ITEM {row['title'][:100]} | {row['url'][:220]}")
     return rows
 
 
