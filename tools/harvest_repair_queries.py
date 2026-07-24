@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import harvest_game_screenshots as base
 
-# These two older/niche titles returned only sequel/review-heavy results for the
-# stricter first-pass searches. Keep exact game aliases and sequel exclusions,
-# but use search wording that surfaces episodic gameplay uploads.
+# These niche titles returned too few exact matches for the stricter first-pass
+# searches. Keep their exact aliases and sequel exclusions, but use wording that
+# surfaces episodic walkthrough and longplay uploads.
+base.GAMES[7]["query"] = "Ghost Trick Phantom Detective DS walkthrough part 1 gameplay"
 base.GAMES[8]["query"] = "Fantasy Life Nintendo 3DS walkthrough part 1 gameplay"
 base.GAMES[19]["query"] = "Auto Modellista PS2 longplay full game gameplay"
 
