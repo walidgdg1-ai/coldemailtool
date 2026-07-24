@@ -2,7 +2,7 @@ name: Temporary AI Prod HD All-Game Harvest
 
 on:
   workflow_run:
-    workflows: ["AI Prod HD Extra Gameplay Harvest"]
+    workflows: ["AI Prod Gameplay Screenshot Harvest", "AI Prod HD Extra Gameplay Harvest"]
     types: [completed]
   workflow_dispatch:
 
