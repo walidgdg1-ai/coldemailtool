@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   harvest:
-    name: Storyboard repair ${{ matrix.game_index }}
+    name: Trusted gallery repair ${{ matrix.game_index }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -31,9 +31,9 @@ jobs:
 
       - name: Install harvesting dependencies
         run: |
-          python -m pip install --disable-pip-version-check --upgrade "yt-dlp[default,curl-cffi]" pillow opencv-python-headless imagehash numpy
+          python -m pip install --disable-pip-version-check --upgrade requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
 
-      - name: Harvest timeline storyboard frames
+      - name: Harvest fixed trusted galleries
         id: harvest
         continue-on-error: true
         env:
@@ -41,7 +41,7 @@ jobs:
           TARGET_PER_GAME: "15"
         run: |
           set -o pipefail
-          python tools/harvest_known_storyboards.py 2>&1 | tee "harvest_${{ matrix.game_index }}.log"
+          python tools/run_trusted_gallery_repairs.py 2>&1 | tee "harvest_${{ matrix.game_index }}.log"
 
       - name: Record game outcome
         if: always()
@@ -53,7 +53,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: storyboard-game-${{ matrix.game_index }}
+          name: trusted-game-${{ matrix.game_index }}
           path: |
             GAMEPLAY_REFERENCE_BANK/
             harvest_${{ matrix.game_index }}.log
@@ -62,7 +62,7 @@ jobs:
           retention-days: 14
 
   package:
-    name: Package storyboard repairs
+    name: Package trusted gallery repairs
     if: always()
     needs: harvest
     runs-on: ubuntu-latest
@@ -72,17 +72,17 @@ jobs:
       - name: Download repaired artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: storyboard-game-*
+          pattern: trusted-game-*
           path: repaired-parts
           merge-multiple: false
 
-      - name: Remove intermediate storyboard pools
-        run: find repaired-parts -type d \( -name candidates -o -name storyboard_candidates \) -prune -exec rm -rf '{}' +
+      - name: Remove intermediate candidate pools
+        run: find repaired-parts -type d \( -name trusted_candidates -o -name candidates -o -name storyboard_candidates \) -prune -exec rm -rf '{}' +
 
       - name: Upload repair bundle
         uses: actions/upload-artifact@v4
         with:
-          name: AI_PROD_GAMEPLAY_STORYBOARD_REPAIRS
+          name: AI_PROD_GAMEPLAY_TRUSTED_REPAIRS
           path: repaired-parts/
           if-no-files-found: error
           compression-level: 0
