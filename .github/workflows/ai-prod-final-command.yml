@@ -1,0 +1,110 @@
+name: AI Prod Final Screenshot Harvest Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+concurrency:
+  group: ai-prod-final-command-harvest
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.body == 'RUN_AI_PROD_FINAL_HARVEST_31'
+    name: Build 31-game HD screenshot pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Announce run id
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -f body="AI_PROD_FINAL_HARVEST_STARTED run_id=${{ github.run_id }}" || true
+
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install harvesting dependencies
+        run: |
+          python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
+
+      - name: Harvest 15 additional gameplay screenshots for all 31 games
+        id: harvest
+        continue-on-error: true
+        env:
+          TARGET_PER_GAME: "15"
+          MIN_WIDTH: "960"
+          MIN_HEIGHT: "540"
+        run: |
+          set -o pipefail
+          python tools/run_hd_page_crawl.py 2>&1 | tee hd_final_harvest.log
+
+      - name: Build package and result pointer
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary_path = Path('HD_PARALLEL_GALLERY_SUMMARY.json')
+          if summary_path.exists():
+              summary = json.loads(summary_path.read_text(encoding='utf-8'))
+          else:
+              summary = {'completed_games': 0, 'games_with_any_images': 0, 'total_selected_images': 0, 'games': []}
+          pointer = {
+              'run_id': '${{ github.run_id }}',
+              'artifact_name': 'ai-prod-final-hd-extra-31-games',
+              **summary,
+          }
+          Path('HD_FINAL_HARVEST_RESULT.json').write_text(json.dumps(pointer, indent=2), encoding='utf-8')
+          Path('HD_FINAL_HARVEST_COMMENT.txt').write_text(
+              'AI_PROD_FINAL_HARVEST_RESULT run_id=' + pointer['run_id'] +
+              ' artifact=' + pointer['artifact_name'] +
+              ' completed_games=' + str(pointer['completed_games']) +
+              ' games_with_any_images=' + str(pointer['games_with_any_images']) +
+              ' total_selected_images=' + str(pointer['total_selected_images']),
+              encoding='utf-8'
+          )
+          print(json.dumps(pointer, indent=2))
+          PY
+          zip -0 -r AI_PROD_HD_EXTRA_31_GAMES.zip HD_EXTRA_REFERENCE_BANK HD_PARALLEL_GALLERY_SUMMARY.json gallery_harvest_*.log hd_final_harvest.log
+
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-prod-final-hd-extra-31-games
+          path: |
+            AI_PROD_HD_EXTRA_31_GAMES.zip
+            HD_FINAL_HARVEST_RESULT.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Publish result comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -f body="$(cat HD_FINAL_HARVEST_COMMENT.txt)" || true
+
+      - name: Publish result pointer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HD_FINAL_HARVEST_RESULT.json
+          git commit -m "Publish final 31-game harvest result [skip ci]" || exit 0
+          git push origin HEAD:main || true
