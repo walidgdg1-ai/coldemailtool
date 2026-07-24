@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   harvest:
-    name: HD gallery extra game ${{ matrix.game_index }}
+    name: HD page-crawl extra game ${{ matrix.game_index }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -45,7 +45,7 @@ jobs:
           FALLBACK_H: "330"
         run: |
           set -o pipefail
-          python tools/harvest_hd_web_frames.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
+          python tools/run_hd_page_crawl.py 2>&1 | tee "hd_harvest_${{ matrix.game_index }}.log"
 
       - name: Record game outcome
         if: always()
