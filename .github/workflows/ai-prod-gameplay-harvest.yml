@@ -1,9 +1,9 @@
 name: AI Prod Gameplay Screenshot Harvest
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - ai-prod-screenshot-harvest-20260724
   workflow_dispatch:
 
 permissions:
