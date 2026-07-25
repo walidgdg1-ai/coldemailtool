@@ -1,2 +1,3 @@
-Run requested 2026-07-25T13:16:00+02:00
+PR run requested 2026-07-25T13:22:00+02:00
 Exactly 100 distinct gameplay screenshots required.
+No video-frame bursts, no FiveM menus, no collectible-series repetition.
