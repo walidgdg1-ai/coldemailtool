@@ -1,0 +1,162 @@
+[
+  {
+    "category": "real_world",
+    "work": "The White House",
+    "location": "Oval Office",
+    "hint": "Resolute desk presidential office",
+    "id": "281-the-white-house-oval-office",
+    "priority": 281
+  },
+  {
+    "category": "real_world",
+    "work": "United Nations Headquarters",
+    "location": "General Assembly Hall",
+    "hint": "green marble podium giant gold wall",
+    "id": "282-united-nations-headquarters-general-assembly-hall",
+    "priority": 282
+  },
+  {
+    "category": "real_world",
+    "work": "Palace of Westminster",
+    "location": "House of Commons chamber",
+    "hint": "green benches dispatch boxes",
+    "id": "283-palace-of-westminster-house-of-commons-chamber",
+    "priority": 283
+  },
+  {
+    "category": "real_world",
+    "work": "NASA Johnson Space Center",
+    "location": "Apollo Mission Control room",
+    "hint": "rows of consoles giant screens",
+    "id": "284-nasa-johnson-space-center-apollo-mission-control-room",
+    "priority": 284
+  },
+  {
+    "category": "real_world",
+    "work": "International Space Station",
+    "location": "Cupola observatory",
+    "hint": "seven-window Earth view",
+    "id": "285-international-space-station-cupola-observatory",
+    "priority": 285
+  },
+  {
+    "category": "real_world",
+    "work": "Chernobyl Exclusion Zone",
+    "location": "Pripyat Ferris wheel",
+    "hint": "abandoned yellow ferris wheel",
+    "id": "286-chernobyl-exclusion-zone-pripyat-ferris-wheel",
+    "priority": 286
+  },
+  {
+    "category": "real_world",
+    "work": "RMS Titanic wreck",
+    "location": "Titanic bow on the seafloor",
+    "hint": "rusted shipwreck deep ocean",
+    "id": "287-rms-titanic-wreck-titanic-bow-on-the-seafloor",
+    "priority": 287
+  },
+  {
+    "category": "real_world",
+    "work": "Apollo 11",
+    "location": "Moon landing site with Eagle lunar module",
+    "hint": "grey lunar surface American flag",
+    "id": "288-apollo-11-moon-landing-site-with-eagle-lunar-",
+    "priority": 288
+  },
+  {
+    "category": "real_world",
+    "work": "New York City",
+    "location": "Times Square at night",
+    "hint": "giant billboards crowded intersection",
+    "id": "289-new-york-city-times-square-at-night",
+    "priority": 289
+  },
+  {
+    "category": "real_world",
+    "work": "Tokyo",
+    "location": "Shibuya Crossing",
+    "hint": "scramble crossing neon screens",
+    "id": "290-tokyo-shibuya-crossing",
+    "priority": 290
+  },
+  {
+    "category": "real_world",
+    "work": "Las Vegas",
+    "location": "Las Vegas Strip at night",
+    "hint": "casino neon boulevard",
+    "id": "291-las-vegas-las-vegas-strip-at-night",
+    "priority": 291
+  },
+  {
+    "category": "real_world",
+    "work": "Monaco",
+    "location": "Casino Square and Hôtel de Paris",
+    "hint": "Monte Carlo luxury cars casino",
+    "id": "292-monaco-casino-square-and-hotel-de-paris",
+    "priority": 292
+  },
+  {
+    "category": "real_world",
+    "work": "Dubai",
+    "location": "Burj Khalifa skyline",
+    "hint": "world tallest tower downtown",
+    "id": "293-dubai-burj-khalifa-skyline",
+    "priority": 293
+  },
+  {
+    "category": "real_world",
+    "work": "Paris",
+    "location": "Eiffel Tower from Trocadéro",
+    "hint": "symmetrical plaza tower",
+    "id": "294-paris-eiffel-tower-from-trocadero",
+    "priority": 294
+  },
+  {
+    "category": "real_world",
+    "work": "Giza",
+    "location": "Pyramids and Sphinx",
+    "hint": "Egypt desert monuments",
+    "id": "295-giza-pyramids-and-sphinx",
+    "priority": 295
+  },
+  {
+    "category": "real_world",
+    "work": "Agra",
+    "location": "Taj Mahal reflecting pool",
+    "hint": "white marble mausoleum",
+    "id": "296-agra-taj-mahal-reflecting-pool",
+    "priority": 296
+  },
+  {
+    "category": "real_world",
+    "work": "London",
+    "location": "Abbey Road zebra crossing",
+    "hint": "Beatles crossing street",
+    "id": "297-london-abbey-road-zebra-crossing",
+    "priority": 297
+  },
+  {
+    "category": "real_world",
+    "work": "The Louvre",
+    "location": "Mona Lisa gallery",
+    "hint": "painting behind glass crowd barrier",
+    "id": "298-the-louvre-mona-lisa-gallery",
+    "priority": 298
+  },
+  {
+    "category": "real_world",
+    "work": "Vatican City",
+    "location": "Sistine Chapel interior",
+    "hint": "Michelangelo ceiling frescoes",
+    "id": "299-vatican-city-sistine-chapel-interior",
+    "priority": 299
+  },
+  {
+    "category": "real_world",
+    "work": "New York City",
+    "location": "Grand Central Terminal main concourse",
+    "hint": "celestial ceiling clock",
+    "id": "300-new-york-city-grand-central-terminal-main-concour",
+    "priority": 300
+  }
+]
