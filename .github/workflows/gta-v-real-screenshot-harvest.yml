@@ -1,6 +1,10 @@
 name: GTA V Real Screenshot Harvest
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'GTA_V_REAL_TRIGGER.txt'
   issue_comment:
     types: [created]
 
@@ -16,17 +20,20 @@ concurrency:
 jobs:
   harvest:
     if: >-
-      !github.event.issue.pull_request &&
-      github.event.comment.body == 'RUN_GTA_V_REAL_100'
+      github.event_name == 'push' ||
+      (!github.event.issue.pull_request && github.event.comment.body == 'RUN_GTA_V_REAL_100')
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
+      - name: Set result issue
+        run: echo 'ISSUE_NUMBER=34' >> "$GITHUB_ENV"
+
       - name: Announce run
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+          gh api repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments \
             -f body="GTA_V_REAL_HARVEST_STARTED run_id=${{ github.run_id }}"
 
       - name: Check out repository
@@ -105,5 +112,5 @@ jobs:
               print('unknown')
           PY
           )
-          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+          gh api repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments \
             -f body="GTA_V_REAL_HARVEST_RESULT run_id=${{ github.run_id }} artifact_id=${ARTIFACT_ID} selected=${SELECTED} status=${STATUS}"
