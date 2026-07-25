@@ -1,0 +1,562 @@
+[
+  {
+    "category": "video_game",
+    "work": "Super Mario Bros. (1985)",
+    "location": "World 1-1",
+    "hint": "NES blue sky green pipes brick blocks flagpole",
+    "id": "001-super-mario-bros-1985-world-1-1",
+    "priority": 1
+  },
+  {
+    "category": "video_game",
+    "work": "Super Mario 64",
+    "location": "Peach's Castle exterior",
+    "hint": "castle moat bridge stained glass",
+    "id": "002-super-mario-64-peach-s-castle-exterior",
+    "priority": 2
+  },
+  {
+    "category": "video_game",
+    "work": "Mario Kart Wii",
+    "location": "Rainbow Road",
+    "hint": "rainbow track space Earth",
+    "id": "003-mario-kart-wii-rainbow-road",
+    "priority": 3
+  },
+  {
+    "category": "video_game",
+    "work": "Mario Kart 64",
+    "location": "Bowser's Castle",
+    "hint": "lava stone castle kart track",
+    "id": "004-mario-kart-64-bowser-s-castle",
+    "priority": 4
+  },
+  {
+    "category": "video_game",
+    "work": "Sonic the Hedgehog",
+    "location": "Green Hill Zone",
+    "hint": "checkerboard cliffs loops palm trees",
+    "id": "005-sonic-the-hedgehog-green-hill-zone",
+    "priority": 5
+  },
+  {
+    "category": "video_game",
+    "work": "Sonic Adventure",
+    "location": "Station Square",
+    "hint": "Dreamcast city plaza hotel",
+    "id": "006-sonic-adventure-station-square",
+    "priority": 6
+  },
+  {
+    "category": "video_game",
+    "work": "The Legend of Zelda: Ocarina of Time",
+    "location": "Hyrule Field and Castle",
+    "hint": "Nintendo 64 Hyrule Castle drawbridge",
+    "id": "007-the-legend-of-zelda-ocarina-of-time-hyrule-field-and-castle",
+    "priority": 7
+  },
+  {
+    "category": "video_game",
+    "work": "The Legend of Zelda: Breath of the Wild",
+    "location": "Great Plateau",
+    "hint": "Temple of Time plateau Hyrule",
+    "id": "008-the-legend-of-zelda-breath-of-the-wild-great-plateau",
+    "priority": 8
+  },
+  {
+    "category": "video_game",
+    "work": "The Legend of Zelda: Tears of the Kingdom",
+    "location": "Great Sky Island",
+    "hint": "floating islands golden trees",
+    "id": "009-the-legend-of-zelda-tears-of-the-kingdom-great-sky-island",
+    "priority": 9
+  },
+  {
+    "category": "video_game",
+    "work": "Pokémon Red and Blue",
+    "location": "Pallet Town",
+    "hint": "Game Boy pixel town Professor Oak lab",
+    "id": "010-pokemon-red-and-blue-pallet-town",
+    "priority": 10
+  },
+  {
+    "category": "video_game",
+    "work": "Pokémon Gold and Silver",
+    "location": "Goldenrod City",
+    "hint": "Game Boy Color city radio tower",
+    "id": "011-pokemon-gold-and-silver-goldenrod-city",
+    "priority": 11
+  },
+  {
+    "category": "video_game",
+    "work": "Pokémon Scarlet and Violet",
+    "location": "Mesagoza central plaza",
+    "hint": "academy staircase giant Poké Ball plaza",
+    "id": "012-pokemon-scarlet-and-violet-mesagoza-central-plaza",
+    "priority": 12
+  },
+  {
+    "category": "video_game",
+    "work": "Minecraft",
+    "location": "Classic plains village",
+    "hint": "blocky village grass biome",
+    "id": "013-minecraft-classic-plains-village",
+    "priority": 13
+  },
+  {
+    "category": "video_game",
+    "work": "Fortnite Chapter 1",
+    "location": "Original Tilted Towers",
+    "hint": "battle royale city skyline",
+    "id": "014-fortnite-chapter-1-original-tilted-towers",
+    "priority": 14
+  },
+  {
+    "category": "video_game",
+    "work": "Fortnite",
+    "location": "Battle Bus over the island",
+    "hint": "blue balloon bus island aerial",
+    "id": "015-fortnite-battle-bus-over-the-island",
+    "priority": 15
+  },
+  {
+    "category": "video_game",
+    "work": "Grand Theft Auto: San Andreas",
+    "location": "Grove Street cul-de-sac",
+    "hint": "Los Santos green houses",
+    "id": "016-grand-theft-auto-san-andreas-grove-street-cul-de-sac",
+    "priority": 16
+  },
+  {
+    "category": "video_game",
+    "work": "Grand Theft Auto V",
+    "location": "Los Santos skyline and Vinewood sign",
+    "hint": "Mount Chiliad city skyline",
+    "id": "017-grand-theft-auto-v-los-santos-skyline-and-vinewood-sig",
+    "priority": 17
+  },
+  {
+    "category": "video_game",
+    "work": "Grand Theft Auto: Vice City",
+    "location": "Ocean Drive at night",
+    "hint": "pink neon palm trees 1980s",
+    "id": "018-grand-theft-auto-vice-city-ocean-drive-at-night",
+    "priority": 18
+  },
+  {
+    "category": "video_game",
+    "work": "Grand Theft Auto IV",
+    "location": "Star Junction",
+    "hint": "Liberty City Times Square",
+    "id": "019-grand-theft-auto-iv-star-junction",
+    "priority": 19
+  },
+  {
+    "category": "video_game",
+    "work": "Red Dead Redemption 2",
+    "location": "Valentine main street",
+    "hint": "muddy western town saloon",
+    "id": "020-red-dead-redemption-2-valentine-main-street",
+    "priority": 20
+  },
+  {
+    "category": "video_game",
+    "work": "Call of Duty: Modern Warfare 2 (2009)",
+    "location": "Rust map",
+    "hint": "desert oil yard tower",
+    "id": "021-call-of-duty-modern-warfare-2-2009-rust-map",
+    "priority": 21
+  },
+  {
+    "category": "video_game",
+    "work": "Call of Duty: Black Ops",
+    "location": "Nuketown map",
+    "hint": "1950s model suburb yellow bus",
+    "id": "022-call-of-duty-black-ops-nuketown-map",
+    "priority": 22
+  },
+  {
+    "category": "video_game",
+    "work": "Call of Duty 4: Modern Warfare",
+    "location": "Shipment map",
+    "hint": "shipping containers tiny map",
+    "id": "023-call-of-duty-4-modern-warfare-shipment-map",
+    "priority": 23
+  },
+  {
+    "category": "video_game",
+    "work": "Counter-Strike: Global Offensive",
+    "location": "Dust II A site and mid doors",
+    "hint": "desert bombsite double doors",
+    "id": "024-counter-strike-global-offensive-dust-ii-a-site-and-mid-doors",
+    "priority": 24
+  },
+  {
+    "category": "video_game",
+    "work": "Halo: Combat Evolved",
+    "location": "Halo ring landscape",
+    "hint": "ringworld rising over grass",
+    "id": "025-halo-combat-evolved-halo-ring-landscape",
+    "priority": 25
+  },
+  {
+    "category": "video_game",
+    "work": "Halo 3",
+    "location": "Valhalla multiplayer map",
+    "hint": "green valley Forerunner bases",
+    "id": "026-halo-3-valhalla-multiplayer-map",
+    "priority": 26
+  },
+  {
+    "category": "video_game",
+    "work": "DOOM (1993)",
+    "location": "E1M1 Hangar",
+    "hint": "pixelated sci-fi base green armor room",
+    "id": "027-doom-1993-e1m1-hangar",
+    "priority": 27
+  },
+  {
+    "category": "video_game",
+    "work": "DOOM Eternal",
+    "location": "Hell on Earth city",
+    "hint": "demons ruined city giant titan",
+    "id": "028-doom-eternal-hell-on-earth-city",
+    "priority": 28
+  },
+  {
+    "category": "video_game",
+    "work": "Half-Life",
+    "location": "Black Mesa test chamber",
+    "hint": "orange HEV test chamber anti-mass spectrometer",
+    "id": "029-half-life-black-mesa-test-chamber",
+    "priority": 29
+  },
+  {
+    "category": "video_game",
+    "work": "Half-Life 2",
+    "location": "City 17 Citadel",
+    "hint": "Eastern European city giant Citadel",
+    "id": "030-half-life-2-city-17-citadel",
+    "priority": 30
+  },
+  {
+    "category": "video_game",
+    "work": "Portal",
+    "location": "Aperture Science test chamber",
+    "hint": "white panels orange blue portals",
+    "id": "031-portal-aperture-science-test-chamber",
+    "priority": 31
+  },
+  {
+    "category": "video_game",
+    "work": "Portal 2",
+    "location": "Ruined Aperture test chamber",
+    "hint": "overgrown white panels",
+    "id": "032-portal-2-ruined-aperture-test-chamber",
+    "priority": 32
+  },
+  {
+    "category": "video_game",
+    "work": "BioShock",
+    "location": "Rapture underwater city",
+    "hint": "Art Deco city beneath ocean",
+    "id": "033-bioshock-rapture-underwater-city",
+    "priority": 33
+  },
+  {
+    "category": "video_game",
+    "work": "BioShock Infinite",
+    "location": "Columbia floating city",
+    "hint": "American flags floating buildings",
+    "id": "034-bioshock-infinite-columbia-floating-city",
+    "priority": 34
+  },
+  {
+    "category": "video_game",
+    "work": "Fallout 3",
+    "location": "Capital Wasteland and Washington Monument",
+    "hint": "ruined Washington DC green sky",
+    "id": "035-fallout-3-capital-wasteland-and-washington-mo",
+    "priority": 35
+  },
+  {
+    "category": "video_game",
+    "work": "Fallout: New Vegas",
+    "location": "New Vegas Strip gate",
+    "hint": "neon Lucky 38 casino",
+    "id": "036-fallout-new-vegas-new-vegas-strip-gate",
+    "priority": 36
+  },
+  {
+    "category": "video_game",
+    "work": "Fallout 4",
+    "location": "Red Rocket truck stop",
+    "hint": "retro gas station power armor",
+    "id": "037-fallout-4-red-rocket-truck-stop",
+    "priority": 37
+  },
+  {
+    "category": "video_game",
+    "work": "The Elder Scrolls V: Skyrim",
+    "location": "Whiterun and Dragonsreach",
+    "hint": "Nordic city mountain",
+    "id": "038-the-elder-scrolls-v-skyrim-whiterun-and-dragonsreach",
+    "priority": 38
+  },
+  {
+    "category": "video_game",
+    "work": "The Elder Scrolls IV: Oblivion",
+    "location": "Imperial City",
+    "hint": "white stone circular city tower",
+    "id": "039-the-elder-scrolls-iv-oblivion-imperial-city",
+    "priority": 39
+  },
+  {
+    "category": "video_game",
+    "work": "Elden Ring",
+    "location": "Limgrave and the Erdtree",
+    "hint": "golden giant tree ruins",
+    "id": "040-elden-ring-limgrave-and-the-erdtree",
+    "priority": 40
+  },
+  {
+    "category": "video_game",
+    "work": "Dark Souls",
+    "location": "Firelink Shrine",
+    "hint": "ruined stone bonfire",
+    "id": "041-dark-souls-firelink-shrine",
+    "priority": 41
+  },
+  {
+    "category": "video_game",
+    "work": "Bloodborne",
+    "location": "Central Yharnam street",
+    "hint": "Victorian gothic city",
+    "id": "042-bloodborne-central-yharnam-street",
+    "priority": 42
+  },
+  {
+    "category": "video_game",
+    "work": "Sekiro: Shadows Die Twice",
+    "location": "Ashina Castle",
+    "hint": "Japanese castle snow mountain",
+    "id": "043-sekiro-shadows-die-twice-ashina-castle",
+    "priority": 43
+  },
+  {
+    "category": "video_game",
+    "work": "The Witcher 3: Wild Hunt",
+    "location": "Kaer Morhen",
+    "hint": "mountain fortress",
+    "id": "044-the-witcher-3-wild-hunt-kaer-morhen",
+    "priority": 44
+  },
+  {
+    "category": "video_game",
+    "work": "Cyberpunk 2077",
+    "location": "Night City Corpo Plaza",
+    "hint": "neon megacity skyscrapers",
+    "id": "045-cyberpunk-2077-night-city-corpo-plaza",
+    "priority": 45
+  },
+  {
+    "category": "video_game",
+    "work": "Assassin's Creed II",
+    "location": "Florence rooftops and Duomo",
+    "hint": "Renaissance Florence cathedral",
+    "id": "046-assassin-s-creed-ii-florence-rooftops-and-duomo",
+    "priority": 46
+  },
+  {
+    "category": "video_game",
+    "work": "Assassin's Creed: Brotherhood",
+    "location": "Rome Colosseum",
+    "hint": "Ezio Renaissance Rome",
+    "id": "047-assassin-s-creed-brotherhood-rome-colosseum",
+    "priority": 47
+  },
+  {
+    "category": "video_game",
+    "work": "Assassin's Creed IV: Black Flag",
+    "location": "Caribbean pirate harbor",
+    "hint": "tropical port sailing ships",
+    "id": "048-assassin-s-creed-iv-black-flag-caribbean-pirate-harbor",
+    "priority": 48
+  },
+  {
+    "category": "video_game",
+    "work": "Prince of Persia: The Sands of Time",
+    "location": "Maharaja's palace",
+    "hint": "Persian palace sand",
+    "id": "049-prince-of-persia-the-sands-of-time-maharaja-s-palace",
+    "priority": 49
+  },
+  {
+    "category": "video_game",
+    "work": "Tomb Raider (1996)",
+    "location": "Croft Manor exterior",
+    "hint": "PlayStation polygon mansion",
+    "id": "050-tomb-raider-1996-croft-manor-exterior",
+    "priority": 50
+  },
+  {
+    "category": "video_game",
+    "work": "Resident Evil",
+    "location": "Spencer Mansion main hall",
+    "hint": "grand staircase chandelier",
+    "id": "051-resident-evil-spencer-mansion-main-hall",
+    "priority": 51
+  },
+  {
+    "category": "video_game",
+    "work": "Resident Evil 2",
+    "location": "Raccoon Police Department main hall",
+    "hint": "RPD statue grand hall",
+    "id": "052-resident-evil-2-raccoon-police-department-main-hall",
+    "priority": 52
+  },
+  {
+    "category": "video_game",
+    "work": "Resident Evil 4",
+    "location": "Village square",
+    "hint": "Spanish rural village bonfire",
+    "id": "053-resident-evil-4-village-square",
+    "priority": 53
+  },
+  {
+    "category": "video_game",
+    "work": "Silent Hill 2",
+    "location": "Foggy Silent Hill street",
+    "hint": "thick fog abandoned town",
+    "id": "054-silent-hill-2-foggy-silent-hill-street",
+    "priority": 54
+  },
+  {
+    "category": "video_game",
+    "work": "Metal Gear Solid",
+    "location": "Shadow Moses helipad",
+    "hint": "snow helipad searchlights",
+    "id": "055-metal-gear-solid-shadow-moses-helipad",
+    "priority": 55
+  },
+  {
+    "category": "video_game",
+    "work": "Final Fantasy VII",
+    "location": "Midgar skyline",
+    "hint": "mako reactors cyberpunk city",
+    "id": "056-final-fantasy-vii-midgar-skyline",
+    "priority": 56
+  },
+  {
+    "category": "video_game",
+    "work": "Final Fantasy X",
+    "location": "Zanarkand ruins",
+    "hint": "futuristic ruins ocean sunset",
+    "id": "057-final-fantasy-x-zanarkand-ruins",
+    "priority": 57
+  },
+  {
+    "category": "video_game",
+    "work": "Final Fantasy VIII",
+    "location": "Balamb Garden",
+    "hint": "floating academy circular hall",
+    "id": "058-final-fantasy-viii-balamb-garden",
+    "priority": 58
+  },
+  {
+    "category": "video_game",
+    "work": "Kingdom Hearts",
+    "location": "Traverse Town First District",
+    "hint": "night town clock neon",
+    "id": "059-kingdom-hearts-traverse-town-first-district",
+    "priority": 59
+  },
+  {
+    "category": "video_game",
+    "work": "Yakuza / Like a Dragon",
+    "location": "Kamurocho entrance gate",
+    "hint": "red neon Tokyo entertainment district",
+    "id": "060-yakuza-like-a-dragon-kamurocho-entrance-gate",
+    "priority": 60
+  },
+  {
+    "category": "video_game",
+    "work": "Persona 5",
+    "location": "Shibuya Crossing",
+    "hint": "red stylized Tokyo crossing",
+    "id": "061-persona-5-shibuya-crossing",
+    "priority": 61
+  },
+  {
+    "category": "video_game",
+    "work": "Animal Crossing: New Horizons",
+    "location": "Island plaza and Resident Services",
+    "hint": "cute village plaza",
+    "id": "062-animal-crossing-new-horizons-island-plaza-and-resident-services",
+    "priority": 62
+  },
+  {
+    "category": "video_game",
+    "work": "The Sims 2",
+    "location": "Pleasantview neighborhood",
+    "hint": "suburban neighborhood map",
+    "id": "063-the-sims-2-pleasantview-neighborhood",
+    "priority": 63
+  },
+  {
+    "category": "video_game",
+    "work": "Roblox",
+    "location": "Classic Crossroads map",
+    "hint": "stud bricks towers bridges",
+    "id": "064-roblox-classic-crossroads-map",
+    "priority": 64
+  },
+  {
+    "category": "video_game",
+    "work": "Among Us",
+    "location": "The Skeld cafeteria",
+    "hint": "three blue tables emergency button",
+    "id": "065-among-us-the-skeld-cafeteria",
+    "priority": 65
+  },
+  {
+    "category": "video_game",
+    "work": "Five Nights at Freddy's",
+    "location": "Freddy Fazbear's Pizza security office",
+    "hint": "dark office monitors doors",
+    "id": "066-five-nights-at-freddy-s-freddy-fazbear-s-pizza-security-off",
+    "priority": 66
+  },
+  {
+    "category": "video_game",
+    "work": "Undertale",
+    "location": "Judgment Hall",
+    "hint": "golden corridor pillars",
+    "id": "067-undertale-judgment-hall",
+    "priority": 67
+  },
+  {
+    "category": "video_game",
+    "work": "League of Legends",
+    "location": "Summoner's Rift mid lane",
+    "hint": "MOBA lane turrets",
+    "id": "068-league-of-legends-summoner-s-rift-mid-lane",
+    "priority": 68
+  },
+  {
+    "category": "video_game",
+    "work": "World of Warcraft",
+    "location": "Stormwind City entrance",
+    "hint": "Alliance lion statues fantasy city",
+    "id": "069-world-of-warcraft-stormwind-city-entrance",
+    "priority": 69
+  },
+  {
+    "category": "video_game",
+    "work": "Rocket League",
+    "location": "DFH Stadium",
+    "hint": "soccer cars arena",
+    "id": "070-rocket-league-dfh-stadium",
+    "priority": 70
+  }
+]
