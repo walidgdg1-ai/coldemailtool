@@ -1,0 +1,562 @@
+[
+  {
+    "category": "film",
+    "work": "The Shining",
+    "location": "Overlook Hotel hallway",
+    "hint": "orange hexagonal carpet twin corridor",
+    "id": "071-the-shining-overlook-hotel-hallway",
+    "priority": 71
+  },
+  {
+    "category": "film",
+    "work": "Star Wars: A New Hope",
+    "location": "Millennium Falcon cockpit",
+    "hint": "circular cockpit windows stars",
+    "id": "072-star-wars-a-new-hope-millennium-falcon-cockpit",
+    "priority": 72
+  },
+  {
+    "category": "film",
+    "work": "Star Wars: The Empire Strikes Back",
+    "location": "Cloud City carbon-freezing chamber",
+    "hint": "orange smoke carbonite platform",
+    "id": "073-star-wars-the-empire-strikes-back-cloud-city-carbon-freezing-chamber",
+    "priority": 73
+  },
+  {
+    "category": "film",
+    "work": "Star Wars: Return of the Jedi",
+    "location": "Jabba's Palace throne room",
+    "hint": "desert palace pit throne",
+    "id": "074-star-wars-return-of-the-jedi-jabba-s-palace-throne-room",
+    "priority": 74
+  },
+  {
+    "category": "film",
+    "work": "Harry Potter and the Sorcerer's Stone",
+    "location": "Hogwarts Great Hall",
+    "hint": "floating candles long tables",
+    "id": "075-harry-potter-and-the-sorcerer-s-stone-hogwarts-great-hall",
+    "priority": 75
+  },
+  {
+    "category": "film",
+    "work": "Harry Potter and the Sorcerer's Stone",
+    "location": "Platform 9¾",
+    "hint": "King's Cross brick platform red train",
+    "id": "076-harry-potter-and-the-sorcerer-s-stone-platform-934",
+    "priority": 76
+  },
+  {
+    "category": "film",
+    "work": "The Lord of the Rings: The Fellowship of the Ring",
+    "location": "Hobbiton and Bag End",
+    "hint": "green hill round door",
+    "id": "077-the-lord-of-the-rings-the-fellowship-of-the-r-hobbiton-and-bag-end",
+    "priority": 77
+  },
+  {
+    "category": "film",
+    "work": "The Lord of the Rings: The Fellowship of the Ring",
+    "location": "Rivendell",
+    "hint": "elven valley waterfalls",
+    "id": "078-the-lord-of-the-rings-the-fellowship-of-the-r-rivendell",
+    "priority": 78
+  },
+  {
+    "category": "film",
+    "work": "The Matrix",
+    "location": "Construct white room",
+    "hint": "endless white room red chairs television",
+    "id": "079-the-matrix-construct-white-room",
+    "priority": 79
+  },
+  {
+    "category": "film",
+    "work": "Back to the Future",
+    "location": "Hill Valley clock tower square",
+    "hint": "1955 courthouse clock lightning",
+    "id": "080-back-to-the-future-hill-valley-clock-tower-square",
+    "priority": 80
+  },
+  {
+    "category": "film",
+    "work": "Jurassic Park",
+    "location": "Visitor Center rotunda",
+    "hint": "dinosaur skeletons banner staircase",
+    "id": "081-jurassic-park-visitor-center-rotunda",
+    "priority": 81
+  },
+  {
+    "category": "film",
+    "work": "Titanic",
+    "location": "Grand staircase",
+    "hint": "wood staircase clock glass dome",
+    "id": "082-titanic-grand-staircase",
+    "priority": 82
+  },
+  {
+    "category": "film",
+    "work": "Home Alone",
+    "location": "McCallister house exterior",
+    "hint": "red brick suburban mansion snow",
+    "id": "083-home-alone-mccallister-house-exterior",
+    "priority": 83
+  },
+  {
+    "category": "film",
+    "work": "Ghostbusters",
+    "location": "Ghostbusters firehouse exterior",
+    "hint": "Hook and Ladder 8 red doors",
+    "id": "084-ghostbusters-ghostbusters-firehouse-exterior",
+    "priority": 84
+  },
+  {
+    "category": "film",
+    "work": "Raiders of the Lost Ark",
+    "location": "Golden Idol temple",
+    "hint": "jungle stone temple pedestal",
+    "id": "085-raiders-of-the-lost-ark-golden-idol-temple",
+    "priority": 85
+  },
+  {
+    "category": "film",
+    "work": "Indiana Jones and the Last Crusade",
+    "location": "Grail Temple",
+    "hint": "Petra treasury canyon",
+    "id": "086-indiana-jones-and-the-last-crusade-grail-temple",
+    "priority": 86
+  },
+  {
+    "category": "film",
+    "work": "Pulp Fiction",
+    "location": "Jack Rabbit Slim's diner",
+    "hint": "1950s themed restaurant dance floor",
+    "id": "087-pulp-fiction-jack-rabbit-slim-s-diner",
+    "priority": 87
+  },
+  {
+    "category": "film",
+    "work": "Kill Bill: Vol. 1",
+    "location": "House of Blue Leaves",
+    "hint": "Japanese restaurant blue garden",
+    "id": "088-kill-bill-vol-1-house-of-blue-leaves",
+    "priority": 88
+  },
+  {
+    "category": "film",
+    "work": "The Godfather",
+    "location": "Don Corleone's office",
+    "hint": "dark wood office blinds wedding",
+    "id": "089-the-godfather-don-corleone-s-office",
+    "priority": 89
+  },
+  {
+    "category": "film",
+    "work": "Scarface",
+    "location": "Tony Montana mansion office",
+    "hint": "The World Is Yours statue staircase",
+    "id": "090-scarface-tony-montana-mansion-office",
+    "priority": 90
+  },
+  {
+    "category": "film",
+    "work": "Fight Club",
+    "location": "Paper Street house",
+    "hint": "dilapidated Victorian house",
+    "id": "091-fight-club-paper-street-house",
+    "priority": 91
+  },
+  {
+    "category": "film",
+    "work": "American Psycho",
+    "location": "Patrick Bateman's apartment",
+    "hint": "minimal white Manhattan apartment",
+    "id": "092-american-psycho-patrick-bateman-s-apartment",
+    "priority": 92
+  },
+  {
+    "category": "film",
+    "work": "The Wolf of Wall Street",
+    "location": "Stratton Oakmont trading floor",
+    "hint": "crowded brokerage office phones",
+    "id": "093-the-wolf-of-wall-street-stratton-oakmont-trading-floor",
+    "priority": 93
+  },
+  {
+    "category": "film",
+    "work": "The Great Gatsby (2013)",
+    "location": "Gatsby mansion party",
+    "hint": "Art Deco gold party staircase",
+    "id": "094-the-great-gatsby-2013-gatsby-mansion-party",
+    "priority": 94
+  },
+  {
+    "category": "film",
+    "work": "The Dark Knight",
+    "location": "Police interrogation room",
+    "hint": "bare fluorescent room metal table",
+    "id": "095-the-dark-knight-police-interrogation-room",
+    "priority": 95
+  },
+  {
+    "category": "film",
+    "work": "Batman (1989)",
+    "location": "Batcave",
+    "hint": "gothic cave computer platform",
+    "id": "096-batman-1989-batcave",
+    "priority": 96
+  },
+  {
+    "category": "film",
+    "work": "Joker (2019)",
+    "location": "Bronx staircase",
+    "hint": "long concrete stairs graffiti",
+    "id": "097-joker-2019-bronx-staircase",
+    "priority": 97
+  },
+  {
+    "category": "film",
+    "work": "Superman (1978)",
+    "location": "Fortress of Solitude",
+    "hint": "white crystal ice palace",
+    "id": "098-superman-1978-fortress-of-solitude",
+    "priority": 98
+  },
+  {
+    "category": "film",
+    "work": "Spider-Man: No Way Home",
+    "location": "Statue of Liberty scaffolding",
+    "hint": "copper shields construction",
+    "id": "099-spider-man-no-way-home-statue-of-liberty-scaffolding",
+    "priority": 99
+  },
+  {
+    "category": "film",
+    "work": "Avengers: Endgame",
+    "location": "Avengers compound time-travel platform",
+    "hint": "circular quantum tunnel machine",
+    "id": "100-avengers-endgame-avengers-compound-time-travel-platf",
+    "priority": 100
+  },
+  {
+    "category": "film",
+    "work": "Iron Man",
+    "location": "Tony Stark Malibu workshop",
+    "hint": "garage suits holograms sports cars",
+    "id": "101-iron-man-tony-stark-malibu-workshop",
+    "priority": 101
+  },
+  {
+    "category": "film",
+    "work": "Black Panther",
+    "location": "Wakanda waterfall challenge arena",
+    "hint": "cliff waterfall tribes",
+    "id": "102-black-panther-wakanda-waterfall-challenge-arena",
+    "priority": 102
+  },
+  {
+    "category": "film",
+    "work": "Doctor Strange",
+    "location": "Mirror Dimension New York",
+    "hint": "folding city buildings",
+    "id": "103-doctor-strange-mirror-dimension-new-york",
+    "priority": 103
+  },
+  {
+    "category": "film",
+    "work": "Guardians of the Galaxy",
+    "location": "Knowhere",
+    "hint": "giant celestial skull city",
+    "id": "104-guardians-of-the-galaxy-knowhere",
+    "priority": 104
+  },
+  {
+    "category": "film",
+    "work": "Pirates of the Caribbean: The Curse of the Black Pearl",
+    "location": "Black Pearl deck",
+    "hint": "moonlit pirate ship",
+    "id": "105-pirates-of-the-caribbean-the-curse-of-the-bla-black-pearl-deck",
+    "priority": 105
+  },
+  {
+    "category": "film",
+    "work": "Jaws",
+    "location": "Amity Island beach",
+    "hint": "yellow beach signs lifeguard tower",
+    "id": "106-jaws-amity-island-beach",
+    "priority": 106
+  },
+  {
+    "category": "film",
+    "work": "Alien",
+    "location": "Nostromo corridors",
+    "hint": "white industrial spaceship hallway",
+    "id": "107-alien-nostromo-corridors",
+    "priority": 107
+  },
+  {
+    "category": "film",
+    "work": "Aliens",
+    "location": "Hadley's Hope colony",
+    "hint": "rainy industrial colony",
+    "id": "108-aliens-hadley-s-hope-colony",
+    "priority": 108
+  },
+  {
+    "category": "film",
+    "work": "Blade Runner",
+    "location": "Neon Los Angeles street",
+    "hint": "rain neon umbrellas Asian signs",
+    "id": "109-blade-runner-neon-los-angeles-street",
+    "priority": 109
+  },
+  {
+    "category": "film",
+    "work": "Blade Runner 2049",
+    "location": "Orange Las Vegas ruins",
+    "hint": "orange haze giant statues",
+    "id": "110-blade-runner-2049-orange-las-vegas-ruins",
+    "priority": 110
+  },
+  {
+    "category": "film",
+    "work": "2001: A Space Odyssey",
+    "location": "Starchild hotel room",
+    "hint": "white neoclassical bedroom glowing floor",
+    "id": "111-2001-a-space-odyssey-starchild-hotel-room",
+    "priority": 111
+  },
+  {
+    "category": "film",
+    "work": "Interstellar",
+    "location": "Tesseract bookshelf",
+    "hint": "infinite glowing bookshelf grid",
+    "id": "112-interstellar-tesseract-bookshelf",
+    "priority": 112
+  },
+  {
+    "category": "film",
+    "work": "Inception",
+    "location": "Folding Paris street",
+    "hint": "city street bending upward",
+    "id": "113-inception-folding-paris-street",
+    "priority": 113
+  },
+  {
+    "category": "film",
+    "work": "Dune (2021)",
+    "location": "Arrakis desert",
+    "hint": "sand dunes ornithopters sandworm",
+    "id": "114-dune-2021-arrakis-desert",
+    "priority": 114
+  },
+  {
+    "category": "film",
+    "work": "Mad Max: Fury Road",
+    "location": "The Citadel",
+    "hint": "rock towers waterfalls desert",
+    "id": "115-mad-max-fury-road-the-citadel",
+    "priority": 115
+  },
+  {
+    "category": "film",
+    "work": "Terminator 2: Judgment Day",
+    "location": "Steel mill",
+    "hint": "molten steel industrial catwalk",
+    "id": "116-terminator-2-judgment-day-steel-mill",
+    "priority": 116
+  },
+  {
+    "category": "film",
+    "work": "Rocky",
+    "location": "Philadelphia Museum steps",
+    "hint": "city skyline steps",
+    "id": "117-rocky-philadelphia-museum-steps",
+    "priority": 117
+  },
+  {
+    "category": "film",
+    "work": "The Truman Show",
+    "location": "Seahaven town square",
+    "hint": "pastel planned town gazebo",
+    "id": "118-the-truman-show-seahaven-town-square",
+    "priority": 118
+  },
+  {
+    "category": "film",
+    "work": "The Grand Budapest Hotel",
+    "location": "Grand Budapest Hotel exterior",
+    "hint": "pink mountain hotel",
+    "id": "119-the-grand-budapest-hotel-grand-budapest-hotel-exterior",
+    "priority": 119
+  },
+  {
+    "category": "film",
+    "work": "Willy Wonka & the Chocolate Factory",
+    "location": "Chocolate Room",
+    "hint": "candy garden chocolate river",
+    "id": "120-willy-wonka-the-chocolate-factory-chocolate-room",
+    "priority": 120
+  },
+  {
+    "category": "film",
+    "work": "Charlie and the Chocolate Factory",
+    "location": "Chocolate Room",
+    "hint": "bright artificial candy landscape",
+    "id": "121-charlie-and-the-chocolate-factory-chocolate-room",
+    "priority": 121
+  },
+  {
+    "category": "film",
+    "work": "Beetlejuice",
+    "location": "Model town attic",
+    "hint": "miniature town attic table",
+    "id": "122-beetlejuice-model-town-attic",
+    "priority": 122
+  },
+  {
+    "category": "film",
+    "work": "Edward Scissorhands",
+    "location": "Pastel suburb",
+    "hint": "identical colorful houses",
+    "id": "123-edward-scissorhands-pastel-suburb",
+    "priority": 123
+  },
+  {
+    "category": "film",
+    "work": "The Wizard of Oz",
+    "location": "Yellow Brick Road and Emerald City",
+    "hint": "yellow road green city",
+    "id": "124-the-wizard-of-oz-yellow-brick-road-and-emerald-city",
+    "priority": 124
+  },
+  {
+    "category": "film",
+    "work": "Barbie",
+    "location": "Barbieland Dreamhouses",
+    "hint": "pink open doll houses",
+    "id": "125-barbie-barbieland-dreamhouses",
+    "priority": 125
+  },
+  {
+    "category": "film",
+    "work": "The Hunger Games",
+    "location": "Arena Cornucopia",
+    "hint": "metal horn forest clearing",
+    "id": "126-the-hunger-games-arena-cornucopia",
+    "priority": 126
+  },
+  {
+    "category": "film",
+    "work": "Twilight",
+    "location": "Cullen house",
+    "hint": "glass forest modern house",
+    "id": "127-twilight-cullen-house",
+    "priority": 127
+  },
+  {
+    "category": "film",
+    "work": "Mean Girls",
+    "location": "North Shore High cafeteria",
+    "hint": "high school cafeteria tables",
+    "id": "128-mean-girls-north-shore-high-cafeteria",
+    "priority": 128
+  },
+  {
+    "category": "film",
+    "work": "Clueless",
+    "location": "Cher's computerized closet",
+    "hint": "rotating wardrobe computer",
+    "id": "129-clueless-cher-s-computerized-closet",
+    "priority": 129
+  },
+  {
+    "category": "film",
+    "work": "The Devil Wears Prada",
+    "location": "Runway magazine office",
+    "hint": "fashion office glass desks",
+    "id": "130-the-devil-wears-prada-runway-magazine-office",
+    "priority": 130
+  },
+  {
+    "category": "film",
+    "work": "La La Land",
+    "location": "Griffith Observatory planetarium",
+    "hint": "starry blue planetarium",
+    "id": "131-la-la-land-griffith-observatory-planetarium",
+    "priority": 131
+  },
+  {
+    "category": "film",
+    "work": "Grease",
+    "location": "Rydell High gym dance",
+    "hint": "red white school gym",
+    "id": "132-grease-rydell-high-gym-dance",
+    "priority": 132
+  },
+  {
+    "category": "film",
+    "work": "The Breakfast Club",
+    "location": "Shermer High library",
+    "hint": "two-floor school library",
+    "id": "133-the-breakfast-club-shermer-high-library",
+    "priority": 133
+  },
+  {
+    "category": "film",
+    "work": "Ferris Bueller's Day Off",
+    "location": "Cameron's glass house garage",
+    "hint": "modern glass pavilion Ferrari",
+    "id": "134-ferris-bueller-s-day-off-cameron-s-glass-house-garage",
+    "priority": 134
+  },
+  {
+    "category": "film",
+    "work": "Parasite",
+    "location": "Park family living room",
+    "hint": "modern house glass wall staircase",
+    "id": "135-parasite-park-family-living-room",
+    "priority": 135
+  },
+  {
+    "category": "film",
+    "work": "Oldboy",
+    "location": "Corridor fight hallway",
+    "hint": "long green narrow corridor",
+    "id": "136-oldboy-corridor-fight-hallway",
+    "priority": 136
+  },
+  {
+    "category": "film",
+    "work": "The Exorcist",
+    "location": "Georgetown staircase",
+    "hint": "steep stone urban stairs",
+    "id": "137-the-exorcist-georgetown-staircase",
+    "priority": 137
+  },
+  {
+    "category": "film",
+    "work": "The Ring",
+    "location": "Well in the forest",
+    "hint": "stone well dead trees",
+    "id": "138-the-ring-well-in-the-forest",
+    "priority": 138
+  },
+  {
+    "category": "film",
+    "work": "Saw",
+    "location": "Industrial bathroom",
+    "hint": "dirty tiled bathroom chains",
+    "id": "139-saw-industrial-bathroom",
+    "priority": 139
+  },
+  {
+    "category": "film",
+    "work": "A Clockwork Orange",
+    "location": "Korova Milk Bar",
+    "hint": "white sculptural furniture",
+    "id": "140-a-clockwork-orange-korova-milk-bar",
+    "priority": 140
+  }
+]

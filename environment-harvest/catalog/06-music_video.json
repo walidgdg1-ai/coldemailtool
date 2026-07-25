@@ -1,0 +1,122 @@
+[
+  {
+    "category": "music_video",
+    "work": "Michael Jackson — Thriller",
+    "location": "Zombie street outside the Palace Theatre",
+    "hint": "1983 official music video night street",
+    "id": "251-michael-jackson-thriller-zombie-street-outside-the-palace-th",
+    "priority": 251
+  },
+  {
+    "category": "music_video",
+    "work": "a-ha — Take On Me",
+    "location": "Diner and comic-book portal",
+    "hint": "1985 rotoscope music video",
+    "id": "252-a-ha-take-on-me-diner-and-comic-book-portal",
+    "priority": 252
+  },
+  {
+    "category": "music_video",
+    "work": "Britney Spears — ...Baby One More Time",
+    "location": "High-school hallway",
+    "hint": "school lockers dance",
+    "id": "253-britney-spears-baby-one-more-time-high-school-hallway",
+    "priority": 253
+  },
+  {
+    "category": "music_video",
+    "work": "Beyoncé — Single Ladies",
+    "location": "White cyclorama dance room",
+    "hint": "black and white seamless studio",
+    "id": "254-beyonce-single-ladies-white-cyclorama-dance-room",
+    "priority": 254
+  },
+  {
+    "category": "music_video",
+    "work": "Childish Gambino — This Is America",
+    "location": "Empty warehouse",
+    "hint": "industrial warehouse official video",
+    "id": "255-childish-gambino-this-is-america-empty-warehouse",
+    "priority": 255
+  },
+  {
+    "category": "music_video",
+    "work": "Drake — Hotline Bling",
+    "location": "Colored light cube rooms",
+    "hint": "pastel glowing geometric set",
+    "id": "256-drake-hotline-bling-colored-light-cube-rooms",
+    "priority": 256
+  },
+  {
+    "category": "music_video",
+    "work": "Lady Gaga — Bad Romance",
+    "location": "White bathhouse pods",
+    "hint": "futuristic white set",
+    "id": "257-lady-gaga-bad-romance-white-bathhouse-pods",
+    "priority": 257
+  },
+  {
+    "category": "music_video",
+    "work": "Nirvana — Smells Like Teen Spirit",
+    "location": "High-school gym",
+    "hint": "bleachers cheerleaders grunge",
+    "id": "258-nirvana-smells-like-teen-spirit-high-school-gym",
+    "priority": 258
+  },
+  {
+    "category": "music_video",
+    "work": "Jamiroquai — Virtual Insanity",
+    "location": "Moving-floor grey room",
+    "hint": "minimal grey room black sofa",
+    "id": "259-jamiroquai-virtual-insanity-moving-floor-grey-room",
+    "priority": 259
+  },
+  {
+    "category": "music_video",
+    "work": "Sia — Chandelier",
+    "location": "Abandoned apartment",
+    "hint": "sepia empty apartment dancer",
+    "id": "260-sia-chandelier-abandoned-apartment",
+    "priority": 260
+  },
+  {
+    "category": "music_video",
+    "work": "Fatboy Slim — Weapon of Choice",
+    "location": "Hotel lobby",
+    "hint": "Christopher Walken empty hotel",
+    "id": "261-fatboy-slim-weapon-of-choice-hotel-lobby",
+    "priority": 261
+  },
+  {
+    "category": "music_video",
+    "work": "OK Go — Here It Goes Again",
+    "location": "Treadmill room",
+    "hint": "eight treadmills white studio",
+    "id": "262-ok-go-here-it-goes-again-treadmill-room",
+    "priority": 262
+  },
+  {
+    "category": "music_video",
+    "work": "Kendrick Lamar — HUMBLE.",
+    "location": "Last Supper tableau",
+    "hint": "long table church-like room",
+    "id": "263-kendrick-lamar-humble-last-supper-tableau",
+    "priority": 263
+  },
+  {
+    "category": "music_video",
+    "work": "The Weeknd — Blinding Lights",
+    "location": "Las Vegas neon boulevard",
+    "hint": "red suit night casino street",
+    "id": "264-the-weeknd-blinding-lights-las-vegas-neon-boulevard",
+    "priority": 264
+  },
+  {
+    "category": "music_video",
+    "work": "Daft Punk — Around the World",
+    "location": "Color-coded circular stage",
+    "hint": "Michel Gondry dancers staircase",
+    "id": "265-daft-punk-around-the-world-color-coded-circular-stage",
+    "priority": 265
+  }
+]

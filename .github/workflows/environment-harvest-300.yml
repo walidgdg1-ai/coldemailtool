@@ -1,0 +1,111 @@
+name: Iconic Environments Harvest 300
+
+on:
+  push:
+    branches:
+      - environment-harvest-300
+    paths:
+      - "environment-harvest/**"
+      - ".github/workflows/environment-harvest-300.yml"
+      - "ENVIRONMENT_HARVEST_TRIGGER.txt"
+  pull_request:
+    branches:
+      - photo-harvest-100
+    paths:
+      - "environment-harvest/**"
+      - ".github/workflows/environment-harvest-300.yml"
+      - "ENVIRONMENT_HARVEST_TRIGGER.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: Harvest and validate 300 iconic environments
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    defaults:
+      run:
+        working-directory: environment-harvest
+
+    steps:
+      - name: Check out isolated execution branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: environment-harvest/requirements.txt
+
+      - name: Install harvest dependencies
+        run: pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Assemble and validate harvest engine
+        run: |
+          cat parts/harvest_*.py.part > harvest.py
+          echo "00a9bd4a171083b849df2476090c587a570587bc813b7fdf5727bc2341d32e27  harvest.py" | sha256sum -c -
+          python -m py_compile harvest.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows = []
+          for path in sorted(Path("catalog").glob("*.json")):
+              rows.extend(json.loads(path.read_text(encoding="utf-8")))
+          assert len(rows) == 300, len(rows)
+          assert [row["priority"] for row in rows] == list(range(1, 301))
+          assert len({row["id"] for row in rows}) == 300
+          print("Validated catalog: 300 unique environments")
+          PY
+
+      - name: Harvest 300 iconic environments
+        id: harvest
+        continue-on-error: true
+        env:
+          TARGET_IMAGES: "300"
+          MAX_WORKERS: "8"
+          HARVEST_BUDGET_SECONDS: "12600"
+          ENTRY_BUDGET_SECONDS: "80"
+          MAX_SIDE: "3200"
+        run: |
+          set -o pipefail
+          python harvest.py 2>&1 | tee harvest.log
+
+      - name: Emergency package partial output
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          root = Path("iconic-environments-300")
+          output = Path("iconic-environments-300.zip")
+          if root.exists() and not output.exists():
+              with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+                  for path in sorted(root.rglob("*")):
+                      if path.is_file():
+                          archive.write(path, path.relative_to(root.parent))
+          PY
+
+      - name: Show harvest summary
+        if: always()
+        run: |
+          echo "Harvest step outcome: ${{ steps.harvest.outcome }}"
+          cat iconic-environments-300/README.txt 2>/dev/null || true
+          echo "First incomplete entries:"
+          sed -n '1,61p' iconic-environments-300/failures.csv 2>/dev/null || true
+
+      - name: Upload image bank, reports and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iconic-environments-300
+          path: |
+            environment-harvest/iconic-environments-300.zip
+            environment-harvest/iconic-environments-300/
+            environment-harvest/harvest.log
+            environment-harvest/harvest.py
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
