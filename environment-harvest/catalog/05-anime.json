@@ -1,0 +1,242 @@
+[
+  {
+    "category": "anime",
+    "work": "Dragon Ball",
+    "location": "Kame House",
+    "hint": "pink house tiny tropical island",
+    "id": "221-dragon-ball-kame-house",
+    "priority": 221
+  },
+  {
+    "category": "anime",
+    "work": "Dragon Ball Z",
+    "location": "Hyperbolic Time Chamber",
+    "hint": "endless white void clock building",
+    "id": "222-dragon-ball-z-hyperbolic-time-chamber",
+    "priority": 222
+  },
+  {
+    "category": "anime",
+    "work": "Naruto",
+    "location": "Hokage Rock and Hidden Leaf Village",
+    "hint": "mountain faces Konoha rooftops",
+    "id": "223-naruto-hokage-rock-and-hidden-leaf-village",
+    "priority": 223
+  },
+  {
+    "category": "anime",
+    "work": "Naruto",
+    "location": "Ichiraku Ramen shop",
+    "hint": "small ramen counter red curtains",
+    "id": "224-naruto-ichiraku-ramen-shop",
+    "priority": 224
+  },
+  {
+    "category": "anime",
+    "work": "One Piece",
+    "location": "Going Merry deck",
+    "hint": "sheep figurehead pirate ship",
+    "id": "225-one-piece-going-merry-deck",
+    "priority": 225
+  },
+  {
+    "category": "anime",
+    "work": "One Piece",
+    "location": "Water 7 canals",
+    "hint": "Venetian city canals shipyards",
+    "id": "226-one-piece-water-7-canals",
+    "priority": 226
+  },
+  {
+    "category": "anime",
+    "work": "Pokémon anime",
+    "location": "Pokémon Center interior",
+    "hint": "red healing counter Poké Ball",
+    "id": "227-pokemon-anime-pokemon-center-interior",
+    "priority": 227
+  },
+  {
+    "category": "anime",
+    "work": "Attack on Titan",
+    "location": "Shiganshina District gate",
+    "hint": "walled medieval city giant gate",
+    "id": "228-attack-on-titan-shiganshina-district-gate",
+    "priority": 228
+  },
+  {
+    "category": "anime",
+    "work": "Demon Slayer",
+    "location": "Infinity Castle",
+    "hint": "impossible Japanese rooms stairs",
+    "id": "229-demon-slayer-infinity-castle",
+    "priority": 229
+  },
+  {
+    "category": "anime",
+    "work": "Jujutsu Kaisen",
+    "location": "Shibuya Station incident",
+    "hint": "subway concourse Halloween night",
+    "id": "230-jujutsu-kaisen-shibuya-station-incident",
+    "priority": 230
+  },
+  {
+    "category": "anime",
+    "work": "My Hero Academia",
+    "location": "U.A. High School main building",
+    "hint": "giant H-shaped academy",
+    "id": "231-my-hero-academia-u-a-high-school-main-building",
+    "priority": 231
+  },
+  {
+    "category": "anime",
+    "work": "Sailor Moon",
+    "location": "Hikawa Shrine",
+    "hint": "red Shinto shrine stairs",
+    "id": "232-sailor-moon-hikawa-shrine",
+    "priority": 232
+  },
+  {
+    "category": "anime",
+    "work": "Neon Genesis Evangelion",
+    "location": "NERV command center",
+    "hint": "orange screens pyramid headquarters",
+    "id": "233-neon-genesis-evangelion-nerv-command-center",
+    "priority": 233
+  },
+  {
+    "category": "anime",
+    "work": "Akira",
+    "location": "Neo-Tokyo highway",
+    "hint": "red futuristic city highway",
+    "id": "234-akira-neo-tokyo-highway",
+    "priority": 234
+  },
+  {
+    "category": "anime",
+    "work": "Ghost in the Shell (1995)",
+    "location": "Hong Kong-inspired canal city",
+    "hint": "dense cyberpunk waterfront",
+    "id": "235-ghost-in-the-shell-1995-hong-kong-inspired-canal-city",
+    "priority": 235
+  },
+  {
+    "category": "anime",
+    "work": "Cowboy Bebop",
+    "location": "Bebop ship lounge",
+    "hint": "yellow couch spaceship interior",
+    "id": "236-cowboy-bebop-bebop-ship-lounge",
+    "priority": 236
+  },
+  {
+    "category": "anime",
+    "work": "Spirited Away",
+    "location": "Bathhouse exterior",
+    "hint": "red illuminated Japanese bathhouse",
+    "id": "237-spirited-away-bathhouse-exterior",
+    "priority": 237
+  },
+  {
+    "category": "anime",
+    "work": "My Neighbor Totoro",
+    "location": "Rainy bus stop",
+    "hint": "rural bus stop night rain",
+    "id": "238-my-neighbor-totoro-rainy-bus-stop",
+    "priority": 238
+  },
+  {
+    "category": "anime",
+    "work": "Howl's Moving Castle",
+    "location": "Moving castle in the wasteland",
+    "hint": "mechanical walking castle",
+    "id": "239-howl-s-moving-castle-moving-castle-in-the-wasteland",
+    "priority": 239
+  },
+  {
+    "category": "anime",
+    "work": "Princess Mononoke",
+    "location": "Forest of the Forest Spirit",
+    "hint": "kodama ancient forest",
+    "id": "240-princess-mononoke-forest-of-the-forest-spirit",
+    "priority": 240
+  },
+  {
+    "category": "anime",
+    "work": "Your Name",
+    "location": "Suga Shrine staircase",
+    "hint": "Tokyo red handrail stairs",
+    "id": "241-your-name-suga-shrine-staircase",
+    "priority": 241
+  },
+  {
+    "category": "anime",
+    "work": "Weathering with You",
+    "location": "Rooftop shrine",
+    "hint": "Tokyo rooftop torii gate",
+    "id": "242-weathering-with-you-rooftop-shrine",
+    "priority": 242
+  },
+  {
+    "category": "anime",
+    "work": "One-Punch Man",
+    "location": "Z-City ruins",
+    "hint": "destroyed empty city",
+    "id": "243-one-punch-man-z-city-ruins",
+    "priority": 243
+  },
+  {
+    "category": "anime",
+    "work": "Bleach",
+    "location": "Seireitei and Soul Society",
+    "hint": "white walls Japanese spirit city",
+    "id": "244-bleach-seireitei-and-soul-society",
+    "priority": 244
+  },
+  {
+    "category": "anime",
+    "work": "Hunter x Hunter",
+    "location": "Heavens Arena",
+    "hint": "giant tower city",
+    "id": "245-hunter-x-hunter-heavens-arena",
+    "priority": 245
+  },
+  {
+    "category": "anime",
+    "work": "Fullmetal Alchemist: Brotherhood",
+    "location": "Central Command headquarters",
+    "hint": "Amestris military building",
+    "id": "246-fullmetal-alchemist-brotherhood-central-command-headquarters",
+    "priority": 246
+  },
+  {
+    "category": "anime",
+    "work": "JoJo's Bizarre Adventure: Stardust Crusaders",
+    "location": "DIO's mansion",
+    "hint": "Cairo mansion grand staircase",
+    "id": "247-jojo-s-bizarre-adventure-stardust-crusaders-dio-s-mansion",
+    "priority": 247
+  },
+  {
+    "category": "anime",
+    "work": "Yu-Gi-Oh!",
+    "location": "KaibaCorp Duel Tower arena",
+    "hint": "futuristic duel platform",
+    "id": "248-yu-gi-oh-kaibacorp-duel-tower-arena",
+    "priority": 248
+  },
+  {
+    "category": "anime",
+    "work": "Initial D",
+    "location": "Mount Akina hairpin road",
+    "hint": "Japanese mountain pass at night",
+    "id": "249-initial-d-mount-akina-hairpin-road",
+    "priority": 249
+  },
+  {
+    "category": "anime",
+    "work": "Haikyu!!",
+    "location": "Karasuno High gym",
+    "hint": "orange volleyball court",
+    "id": "250-haikyu-karasuno-high-gym",
+    "priority": 250
+  }
+]
