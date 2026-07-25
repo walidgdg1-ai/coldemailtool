@@ -1,0 +1,109 @@
+name: GTA V Real Screenshot Harvest
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: gta-v-real-screenshot-harvest
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    if: >-
+      !github.event.issue.pull_request &&
+      github.event.comment.body == 'RUN_GTA_V_REAL_100'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Announce run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -f body="GTA_V_REAL_HARVEST_STARTED run_id=${{ github.run_id }}"
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --disable-pip-version-check requests beautifulsoup4 pillow opencv-python-headless imagehash numpy
+
+      - name: Harvest 100 distinct GTA V gameplay screenshots
+        id: harvest
+        continue-on-error: true
+        env:
+          TARGET: '100'
+        run: |
+          set -o pipefail
+          python tools/gta_v_real_screenshot_harvest.py 2>&1 | tee GTA_V_REAL_100_HARVEST.log
+
+      - name: Ensure result pointer exists
+        if: always()
+        run: |
+          if [ ! -f GTA_V_REAL_100_RESULT.json ]; then
+            printf '{"requested":100,"selected":0,"status":"failed_before_result"}\n' > GTA_V_REAL_100_RESULT.json
+          fi
+
+      - name: Upload result artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gta-v-real-100-screenshots
+          path: |
+            GTA_V_REAL_100_SCREENSHOTS.zip
+            GTA_V_REAL_100/CONTACT_SHEET_100.jpg
+            GTA_V_REAL_100/sources.csv
+            GTA_V_REAL_100/sources.json
+            GTA_V_REAL_100/README.txt
+            GTA_V_REAL_100_RESULT.json
+            GTA_V_REAL_100_HARVEST.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+      - name: Publish artifact pointer
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 8
+          ARTIFACT_ID=""
+          for attempt in 1 2 3 4 5 6; do
+            ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+              --jq '.artifacts[] | select(.name == "gta-v-real-100-screenshots") | .id' | head -n1 || true)
+            [ -n "$ARTIFACT_ID" ] && break
+            sleep 5
+          done
+          SELECTED=$(python - <<'PY'
+          import json
+          try:
+              print(json.load(open('GTA_V_REAL_100_RESULT.json'))['selected'])
+          except Exception:
+              print(0)
+          PY
+          )
+          STATUS=$(python - <<'PY'
+          import json
+          try:
+              print(json.load(open('GTA_V_REAL_100_RESULT.json'))['status'])
+          except Exception:
+              print('unknown')
+          PY
+          )
+          gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -f body="GTA_V_REAL_HARVEST_RESULT run_id=${{ github.run_id }} artifact_id=${ARTIFACT_ID} selected=${SELECTED} status=${STATUS}"
