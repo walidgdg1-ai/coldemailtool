@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - photo-harvest-100
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
