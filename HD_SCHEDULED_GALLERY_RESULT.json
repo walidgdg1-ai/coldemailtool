@@ -1,0 +1,257 @@
+{
+  "run_id": "30677595978",
+  "artifact_name": "ai-prod-hd-extra-31-games-final",
+  "completed_games": 28,
+  "games_with_any_images": 28,
+  "total_selected_images": 420,
+  "games": [
+    {
+      "index": 1,
+      "folder": "01_puppeteer",
+      "game": "Puppeteer",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 2,
+      "folder": "02_gravity_rush",
+      "game": "Gravity Rush",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 3,
+      "folder": "03_gravity_rush_2",
+      "game": "Gravity Rush 2",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 4,
+      "folder": "04_solatorobo_red_the_hunter",
+      "game": "Solatorobo Red the Hunter",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 5,
+      "folder": "05_kirby_s_epic_yarn",
+      "game": "Kirby's Epic Yarn",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 6,
+      "folder": "06_littlebigplanet_2",
+      "game": "LittleBigPlanet 2",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 7,
+      "folder": "07_okami",
+      "game": "Okami",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 8,
+      "folder": "08_ghost_trick_phantom_detective",
+      "game": "Ghost Trick Phantom Detective",
+      "status": "partial",
+      "count": 0,
+      "method": "trusted_gallery"
+    },
+    {
+      "index": 9,
+      "folder": "09_fantasy_life",
+      "game": "Fantasy Life",
+      "status": "partial",
+      "count": 0,
+      "method": "trusted_gallery"
+    },
+    {
+      "index": 10,
+      "folder": "10_yo_kai_watch_2",
+      "game": "Yo-kai Watch 2",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 11,
+      "folder": "11_katamari_damacy",
+      "game": "Katamari Damacy",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 12,
+      "folder": "12_we_love_katamari",
+      "game": "We Love Katamari",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 13,
+      "folder": "13_the_world_ends_with_you",
+      "game": "The World Ends with You",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 14,
+      "folder": "14_muramasa_the_demon_blade",
+      "game": "Muramasa The Demon Blade",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 15,
+      "folder": "15_viewtiful_joe",
+      "game": "Viewtiful Joe",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 16,
+      "folder": "16_sly_2_band_of_thieves",
+      "game": "Sly 2 Band of Thieves",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 17,
+      "folder": "17_dark_chronicle_dark_cloud_2",
+      "game": "Dark Chronicle Dark Cloud 2",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 18,
+      "folder": "18_rogue_galaxy",
+      "game": "Rogue Galaxy",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 19,
+      "folder": "19_klonoa_2_lunatea_s_veil",
+      "game": "Klonoa 2 Lunatea's Veil",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 20,
+      "folder": "20_auto_modellista",
+      "game": "Auto Modellista",
+      "status": "partial",
+      "count": 0,
+      "method": "trusted_gallery"
+    },
+    {
+      "index": 21,
+      "folder": "21_no_more_heroes",
+      "game": "No More Heroes",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 22,
+      "folder": "22_fragile_dreams_farewell_ruins_of_the_moon",
+      "game": "Fragile Dreams Farewell Ruins of the Moon",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 23,
+      "folder": "23_bravely_default",
+      "game": "Bravely Default",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 24,
+      "folder": "24_ever_oasis",
+      "game": "Ever Oasis",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 25,
+      "folder": "25_monster_hunter_stories",
+      "game": "Monster Hunter Stories",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 26,
+      "folder": "26_kirby_planet_robobot",
+      "game": "Kirby Planet Robobot",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 27,
+      "folder": "27_killer7",
+      "game": "Killer7",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 28,
+      "folder": "28_madworld",
+      "game": "MadWorld",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 29,
+      "folder": "29_hotel_dusk_room_215",
+      "game": "Hotel Dusk Room 215",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 30,
+      "folder": "30_the_unfinished_swan",
+      "game": "The Unfinished Swan",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    },
+    {
+      "index": 31,
+      "folder": "31_mirror_s_edge",
+      "game": "Mirror's Edge",
+      "status": "complete",
+      "count": 15,
+      "method": "youtube_auto_frames"
+    }
+  ]
+}
