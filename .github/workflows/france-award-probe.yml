@@ -22,8 +22,34 @@ jobs:
         run: |
           python - <<'PY'
           import json,collections,glob
-          fam=collections.Counter(); nature=collections.Counter(); marche=collections.Counter(); titulaire=0; records=0; keys=collections.Counter(); datarefs=collections.Counter(); award_samples=[]; tender_samples=[]
-          id_like=collections.Counter()
+
+          def as_dict(v):
+              return v if isinstance(v,dict) else {}
+
+          def as_list(v):
+              if v in (None,'',[],{}): return []
+              return v if isinstance(v,list) else [v]
+
+          def text(v):
+              if v is None: return ''
+              if isinstance(v,(str,int,float,bool)): return str(v)
+              if isinstance(v,list): return ' | '.join(text(x) for x in v)
+              if isinstance(v,dict):
+                  preferred=[]
+                  for k in ('nature','famille','libelle','label','value','code','reference','id'):
+                      if k in v and v[k] not in (None,'',[],{}): preferred.append(text(v[k]))
+                  return ' | '.join(preferred) if preferred else json.dumps(v,ensure_ascii=False,sort_keys=True)
+              return str(v)
+
+          def iter_dicts(v):
+              for x in as_list(v):
+                  if isinstance(x,dict): yield x
+
+          fam=collections.Counter(); nature=collections.Counter(); marche=collections.Counter()
+          titulaire=0; records=0; keys=collections.Counter(); datarefs=collections.Counter(); id_like=collections.Counter()
+          field_types=collections.defaultdict(collections.Counter)
+          award_samples=[]; tender_samples=[]
+
           for p in glob.glob('raw/*'):
             with open(p,'r',encoding='utf-8-sig',errors='replace') as f:
               for line in f:
@@ -32,24 +58,43 @@ jobs:
                 try:o=json.loads(line)
                 except Exception as e:
                   print('BAD_JSON',p,repr(line[:200]),repr(e)); continue
+                if not isinstance(o,dict):
+                  print('NON_OBJECT_RECORD',p,type(o).__name__); continue
                 records+=1
-                for k in o: keys[k]+=1
-                ta=o.get('typeavis') or {}; fam[str(ta.get('famille'))]+=1; nature[str(ta.get('nature'))]+=1; marche[str(o.get('marche'))]+=1
+                for k,v in o.items():
+                  keys[k]+=1; field_types[k][type(v).__name__]+=1
+
+                ta=o.get('typeavis')
+                ta_dict=as_dict(ta)
+                # BOAMP has heterogeneous historical representations: dict/string/list.
+                fam[text(ta_dict.get('famille')) if ta_dict else text(ta)]+=1
+                nature[text(ta_dict.get('nature')) if ta_dict else text(o.get('nature_libelle') or ta)]+=1
+                marche[text(o.get('marche'))]+=1
+
                 tit=o.get('titulaire')
                 if tit not in (None,'',[],{}): titulaire+=1
-                for d in o.get('donnees') or []:
-                  ref=str(d.get('reference')); datarefs[ref]+=1
-                  if any(w in ref.lower() for w in ('montant','valeur','attrib','march','avis','id','reference','titulaire','offre','candidat')): id_like[ref]+=1
-                is_award=bool(tit not in (None,'',[],{})) or bool(o.get('marche')) or any(x in str(ta.get('nature','')).lower() for x in ('attribution','résultat','resultat'))
+
+                for d in iter_dicts(o.get('donnees')):
+                  ref=text(d.get('reference'))
+                  if not ref: continue
+                  datarefs[ref]+=1
+                  if any(w in ref.lower() for w in ('montant','valeur','attrib','march','avis','id','reference','titulaire','offre','candidat')):
+                    id_like[ref]+=1
+
+                nature_text=text(ta_dict.get('nature')) if ta_dict else text(o.get('nature_libelle') or ta)
+                is_award=(tit not in (None,'',[],{})) or (o.get('marche') not in (None,'',[],{})) or any(x in nature_text.lower() for x in ('attribution','résultat','resultat'))
                 snap={k:o.get(k) for k in ['idweb','dateparution','datelimitereponse','typeavis','objet','organisme','titulaire','marche','cpv','procedure','donnees','dtcons','gestionsysteme','origine','descripteur','etat','famille','nature_libelle']}
                 if is_award and len(award_samples)<20: award_samples.append(snap)
                 if not is_award and len(tender_samples)<5: tender_samples.append(snap)
+
           print('RECORDS',records)
           print('FAMILY',fam.most_common(30))
           print('NATURE',nature.most_common(50))
-          print('MARCHE',marche)
+          print('MARCHE',marche.most_common(30))
           print('TITULAIRE_PRESENT',titulaire)
           print('TOP_KEYS',keys.most_common(100))
+          print('FIELD_TYPES')
+          for k in sorted(field_types): print(k,field_types[k].most_common())
           print('TOP_DATAREFS',datarefs.most_common(200))
           print('LINK_VALUE_REFS',id_like.most_common(200))
           print('\nAWARD_SAMPLES')
