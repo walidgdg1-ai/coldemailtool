@@ -5,6 +5,8 @@ on:
     branches: [tender-harvest-relay-20260812]
     paths:
       - '.github/workflows/tender-normalize-uk.yml'
+      - 'tools/tender_normalize_uk.py'
+      - 'tools/tender_market_intelligence.py'
   workflow_dispatch:
 
 permissions:
