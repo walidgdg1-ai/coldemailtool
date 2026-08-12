@@ -1,4 +1,4 @@
-name: Tender relay file-host probe
+name: Tender relay release probe
 
 on:
   push:
@@ -7,22 +7,22 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Upload and verify public-data probe
+      - uses: actions/checkout@v4
+      - name: Publish release probe
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          printf 'tender-relay-public-data-probe-v1\n' > /tmp/tender-probe.txt
-          WANT=$(sha256sum /tmp/tender-probe.txt | cut -d' ' -f1)
-          URL=$(curl --fail-with-body -sS -F 'reqtype=fileupload' -F 'fileToUpload=@/tmp/tender-probe.txt' https://catbox.moe/user/api.php)
-          echo "FILE_URL=$URL"
-          curl --fail-with-body -sSL "$URL" -o /tmp/back.txt
-          GOT=$(sha256sum /tmp/back.txt | cut -d' ' -f1)
-          echo "WANT_SHA256=$WANT"
-          echo "GOT_SHA256=$GOT"
-          test "$WANT" = "$GOT"
+          TAG=tender-relay-probe-20260812
+          printf 'tender-release-relay-v1\n' > /tmp/tender-release-probe.txt
+          sha256sum /tmp/tender-release-probe.txt
+          gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$TAG" /tmp/tender-release-probe.txt --title 'Tender relay probe' --notes 'Temporary transport probe for public tender datasets.' --target "$GITHUB_SHA"
+          gh release view "$TAG" --json id,tagName,url,assets
