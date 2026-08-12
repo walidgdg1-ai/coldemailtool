@@ -1,4 +1,4 @@
-name: Tender relay Gofile auth diagnostic
+name: Tender relay file-host probe
 
 on:
   push:
@@ -10,43 +10,19 @@ permissions:
   contents: read
 
 jobs:
-  diag:
+  probe:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Probe Gofile guest retrieval
-        run: |
-          set -u
-          echo hello-tender-relay > /tmp/probe.txt
-          R=$(curl -sS -F 'file=@/tmp/probe.txt' https://upload.gofile.io/uploadfile)
-          echo "UPLOAD=$R"
-          python - <<'PY' <<< "$R" > /tmp/meta.env
-          PY
-        shell: bash
-      - name: Full diagnostic
+      - name: Upload and verify public-data probe
         run: |
           set -euo pipefail
-          R=$(curl -sS -F 'file=@/etc/hostname;filename=probe2.txt' https://upload.gofile.io/uploadfile)
-          echo "UPLOAD2=$R"
-          python - "$R" <<'PY' > /tmp/g.env
-          import json,sys,urllib.parse
-          d=json.loads(sys.argv[1])["data"]
-          print("TOKEN="+d["guestToken"])
-          print("ID="+d["id"])
-          print("FOLDER="+d["parentFolder"])
-          print("CODE="+d["parentFolderCode"])
-          print("SERVER="+d["servers"][0])
-          print("NAME="+d["name"])
-          print("RAW=https://"+d["servers"][0]+".gofile.io/download/web/"+d["id"]+"/"+urllib.parse.quote(d["name"]))
-          PY
-          source /tmp/g.env
-          echo "RAW=$RAW"
-          echo '=== no auth ==='
-          curl -sS -D /tmp/h0 -o /tmp/b0 "$RAW"; cat /tmp/h0; echo; xxd -l 300 /tmp/b0 || true
-          echo '=== bearer auth ==='
-          curl -sS -H "Authorization: Bearer $TOKEN" -D /tmp/h1 -o /tmp/b1 "$RAW"; cat /tmp/h1; echo; xxd -l 300 /tmp/b1 || true
-          echo '=== query token ==='
-          curl -sS -D /tmp/h2 -o /tmp/b2 "$RAW?token=$TOKEN"; cat /tmp/h2; echo; xxd -l 300 /tmp/b2 || true
-          echo '=== folder API ==='
-          curl -sS -H "Authorization: Bearer $TOKEN" -D /tmp/h3 "https://api.gofile.io/contents/$FOLDER?page=1&pageSize=100" | tee /tmp/folder.json
-          echo; cat /tmp/h3
+          printf 'tender-relay-public-data-probe-v1\n' > /tmp/tender-probe.txt
+          WANT=$(sha256sum /tmp/tender-probe.txt | cut -d' ' -f1)
+          URL=$(curl --fail-with-body -sS -F 'reqtype=fileupload' -F 'fileToUpload=@/tmp/tender-probe.txt' https://catbox.moe/user/api.php)
+          echo "FILE_URL=$URL"
+          curl --fail-with-body -sSL "$URL" -o /tmp/back.txt
+          GOT=$(sha256sum /tmp/back.txt | cut -d' ' -f1)
+          echo "WANT_SHA256=$WANT"
+          echo "GOT_SHA256=$GOT"
+          test "$WANT" = "$GOT"
