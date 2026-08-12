@@ -1,0 +1,66 @@
+name: Probe raw tender schemas
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-schema-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [canada, france, germany, uk]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q pandas
+      - name: Download representative raw asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir raw && cd raw
+          case '${{ matrix.source }}' in
+            canada)
+              gh release download tender-raw-canada-v1 --pattern 'tenderNoticeComplete-avisAppelOffresComplet.csv' --pattern 'awardNoticeComplete-avisAttributionComplet.csv'
+              ;;
+            france)
+              gh release download tender-raw-france-v1 --pattern 'boamp_2024-01.csv'
+              ;;
+            germany)
+              gh release download tender-raw-germany-v1 --pattern 'germany_2024-01.zip'
+              ;;
+            uk)
+              gh release download tender-raw-uk_2023-v1 --pattern 'uk_fts_2023-08.packages.jsonl.gz'
+              ;;
+          esac
+          ls -lh
+      - name: Inspect schema
+        run: |
+          python - <<'PY'
+          import gzip,json,os,zipfile,pandas as pd
+          src='${{ matrix.source }}'; root='raw'
+          if src=='canada':
+            for f in os.listdir(root):
+              p=os.path.join(root,f)
+              for enc in ('utf-8-sig','cp1252','latin1'):
+                try:
+                  d=pd.read_csv(p,nrows=3,encoding=enc,low_memory=False); break
+                except Exception: pass
+              print('\nFILE',f,'COLS',len(d.columns)); print(json.dumps(list(d.columns),ensure_ascii=False)); print(d.head(2).to_json(orient='records',force_ascii=False))
+          elif src=='france':
+            p=os.path.join(root,os.listdir(root)[0]); d=pd.read_csv(p,nrows=3,low_memory=False); print('COLS',len(d.columns)); print(json.dumps(list(d.columns),ensure_ascii=False)); print(d.head(2).to_json(orient='records',force_ascii=False))
+          elif src=='germany':
+            p=os.path.join(root,os.listdir(root)[0]); z=zipfile.ZipFile(p); print('MEMBERS',len(z.namelist())); print(json.dumps(z.namelist()[:30]));
+            for n in z.namelist():
+              if not n.endswith('/'):
+                b=z.read(n)[:10000]; print('FIRST_MEMBER',n,'BYTES',len(b)); print(b[:4000].decode('utf-8','replace')); break
+          elif src=='uk':
+            p=os.path.join(root,os.listdir(root)[0]);
+            with gzip.open(p,'rt',encoding='utf-8') as f: obj=json.loads(next(f))
+            print('PACKAGE_KEYS',list(obj)); rels=obj.get('releases',[]); print('RELEASES_IN_PACKAGE',len(rels));
+            if rels: print(json.dumps(rels[0],ensure_ascii=False)[:12000])
+          PY
