@@ -1,28 +1,20 @@
 #!/usr/bin/env python3
-import json, requests, sys
+import json, requests, re
 S=requests.Session(); S.headers.update({'User-Agent':'PublicTenderIntelligence/1.0','Accept':'application/json'})
 
-def uk():
-    u='https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages'
-    p={'updatedFrom':'2023-10-10T00:00:00','updatedTo':'2023-10-11T00:00:00','limit':5}
-    r=S.get(u,params=p,timeout=90); print('UK',r.status_code,r.url); print(r.text[:4000])
+u='https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages'
+p={'updatedFrom':'2023-10-10T00:00:00','updatedTo':'2023-10-11T00:00:00','limit':5}
+r=S.get(u,params=p,timeout=90); o=r.json()
+print('UK_STATUS',r.status_code)
+print('UK_KEYS',list(o.keys()))
+print('UK_LINKS',json.dumps(o.get('links'),ensure_ascii=False)[:3000])
+print('UK_CURSOR',o.get('cursor'),o.get('nextCursor'))
+print('UK_RELEASES',len(o.get('releases',[])))
 
-def usa():
-    u='https://api.usaspending.gov/api/v2/bulk_download/awards/'
-    body={'filters':{'prime_award_types':['A','B','C','D'],'date_type':'action_date','date_range':{'start_date':'2023-08-01','end_date':'2023-08-02'}},'file_format':'csv'}
-    r=S.post(u,json=body,timeout=90); print('USA',r.status_code); print(r.text[:4000])
-
-def qc():
-    candidates=[
-      'https://www.donneesquebec.ca/recherche/api/3/action/package_show?id=systeme-electronique-dappel-doffres-seao',
-      'https://www.donneesquebec.ca/recherche/fr/api/3/action/package_show?id=systeme-electronique-dappel-doffres-seao',
-      'https://www.donneesquebec.ca/recherche/dataset/systeme-electronique-dappel-doffres-seao.json',
-    ]
-    for u in candidates:
-      try:
-        r=S.get(u,timeout=90); print('QC',r.status_code,u,r.headers.get('content-type')); print(r.text[:2000])
-      except Exception as e: print('QCERR',u,repr(e))
-
-for f in (uk,usa,qc):
-    try:f()
-    except Exception as e: print('ERR',f.__name__,repr(e))
+u='https://www.donneesquebec.ca/recherche/api/3/action/package_show?id=systeme-electronique-dappel-doffres-seao'
+r=S.get(u,timeout=90); q=r.json()['result']; resources=q.get('resources',[])
+print('QC_STATUS',r.status_code,'RESOURCES',len(resources))
+for x in resources:
+    n=(x.get('name') or x.get('url') or '')
+    if ('mensuel_' in n.lower() or '2023' in n.lower()) and (n.lower().endswith('.json') or '.json' in n.lower()):
+        print('QC_RES',json.dumps({'name':x.get('name'),'url':x.get('url'),'format':x.get('format'),'last_modified':x.get('last_modified'),'created':x.get('created')},ensure_ascii=False))
