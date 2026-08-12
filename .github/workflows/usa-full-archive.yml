@@ -1,0 +1,45 @@
+name: USAspending full contract archives
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/usa-full-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harvest:
+    name: FY${{ matrix.fy }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        fy: [2023, 2024, 2025, 2026]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check -q requests
+      - name: Download official USAspending full contracts archive
+        env:
+          TENDER_OUT: relay_out/usa_fy${{ matrix.fy }}
+        run: python tools/usa_full_archive.py '${{ matrix.fy }}'
+      - name: Persist as private GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FY: ${{ matrix.fy }}
+        run: |
+          set -euo pipefail
+          TAG="tender-raw-usa-fy${FY}-v1"
+          gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$TAG" --title "Public Tender Raw — USAspending FY${FY}" --notes "Official USAspending full federal contracts award-data archive. Source metadata, byte count, upstream update date and SHA-256 are stored in _manifest.json." --target "$GITHUB_SHA"
+          while IFS= read -r -d '' f; do
+            gh release upload "$TAG" "$f"
+          done < <(find "relay_out/usa_fy${FY}" -type f -print0)
+          gh release view "$TAG" --json tagName,url,assets
