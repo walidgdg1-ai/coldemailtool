@@ -1,4 +1,4 @@
-name: Tender harvest relay
+name: Tender relay transport test
 
 on:
   push:
@@ -6,66 +6,22 @@ on:
       - tender-harvest-relay-20260812
     paths:
       - '.github/workflows/tender-harvest-relay.yml'
-      - 'tools/tender_relay.py'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-env:
-  PYTHONUNBUFFERED: '1'
-
 jobs:
-  harvest:
-    name: ${{ matrix.source }}
+  transport-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      max-parallel: 8
-      matrix:
-        source:
-          - canada
-          - quebec
-          - france
-          - germany
-          - ted_2023
-          - ted_2024
-          - ted_2025
-          - ted_2026
-          - uk_fts_2023
-          - uk_fts_2024
-          - uk_fts_2025
-          - uk_fts_2026
-          - usa_2023
-          - usa_2024
-          - usa_2025
-          - usa_2026
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install relay dependencies
-        run: python -m pip install --disable-pip-version-check -q requests beautifulsoup4
-      - name: Download official dataset shard
-        env:
-          TENDER_OUT: relay_out/${{ matrix.source }}
-        run: python tools/tender_relay.py '${{ matrix.source }}'
-      - name: Inventory
-        if: always()
+      - name: Make probe
         run: |
-          echo "=== disk ==="
-          du -sh relay_out/${{ matrix.source }} || true
-          echo "=== files ==="
-          find relay_out/${{ matrix.source }} -type f -printf '%s\t%p\n' 2>/dev/null | sort -nr | head -50 || true
-      - name: Upload shard artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tender-${{ matrix.source }}
-          path: relay_out/${{ matrix.source }}
-          if-no-files-found: warn
-          retention-days: 1
-          compression-level: 0
+          printf 'public-tender-relay %s\n' "$(date -u +%FT%TZ)" > /tmp/tender-relay-probe.txt
+          sha256sum /tmp/tender-relay-probe.txt
+      - name: Guest-upload probe to Gofile
+        run: |
+          set -o pipefail
+          RESPONSE=$(curl --fail-with-body -sS -F 'file=@/tmp/tender-relay-probe.txt' https://upload.gofile.io/uploadfile)
+          echo "GOFILE_RESPONSE=$RESPONSE"
