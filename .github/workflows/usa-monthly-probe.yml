@@ -21,3 +21,4 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -q requests
       - run: python tools/usa_monthly_probe.py
+      - run: echo 'archive-size-probe-v2'
