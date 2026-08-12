@@ -1,0 +1,44 @@
+name: Probe BOAMP raw monthly format
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/france-format-probe.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download one raw month
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          mkdir raw && cd raw
+          gh release download tender-raw-france-v1 --pattern 'boamp_2024-01.csv' --clobber
+          ls -lh
+      - name: Inspect records and schema transitions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import csv,collections
+          p=Path('raw/boamp_2024-01.csv')
+          b=p.read_bytes()[:20000]
+          print('FIRST_BYTES',repr(b[:500]))
+          for enc in ('utf-8-sig','utf-8','cp1252','latin1'):
+            try: text=b.decode(enc); print('ENCODING',enc); break
+            except: pass
+          lines=text.splitlines()
+          for delim in (',',';','\t','|'):
+            print('DELIM',repr(delim),'COUNTS_FIRST10',[len(next(csv.reader([ln],delimiter=delim))) for ln in lines[:10]])
+          print('FIRST_5_LINES')
+          for i,ln in enumerate(lines[:5],1): print('LINE',i,repr(ln[:4000]))
+          # Scan physical-line separator counts without parsing the whole 96 MB into pandas.
+          counts=collections.Counter(); samples={}
+          with open(p,'r',encoding='utf-8-sig',errors='replace',newline='') as f:
+            for i,line in enumerate(f,1):
+              n=line.count(',')+1; counts[n]+=1
+              if n not in samples:samples[n]=(i,line[:500])
+              if i>=200000:break
+          print('COMMA_FIELDCOUNT_APPROX_TOP',counts.most_common(20))
+          print('SAMPLES',samples)
+          PY
