@@ -1,4 +1,4 @@
-name: Tender relay transport test
+name: Tender relay transport verify
 
 on:
   push:
@@ -12,16 +12,21 @@ permissions:
   contents: read
 
 jobs:
-  transport-test:
+  transport-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Make probe
+      - name: Upload and redownload probe
         run: |
-          printf 'public-tender-relay %s\n' "$(date -u +%FT%TZ)" > /tmp/tender-relay-probe.txt
-          sha256sum /tmp/tender-relay-probe.txt
-      - name: Guest-upload probe to Gofile
-        run: |
-          set -o pipefail
-          RESPONSE=$(curl --fail-with-body -sS -F 'file=@/tmp/tender-relay-probe.txt' https://upload.gofile.io/uploadfile)
-          echo "GOFILE_RESPONSE=$RESPONSE"
+          set -euo pipefail
+          printf 'public-tender-relay %s\n' "$(date -u +%FT%TZ)" > /tmp/probe.txt
+          WANT=$(sha256sum /tmp/probe.txt | cut -d' ' -f1)
+          R=$(curl --fail-with-body -sS -F 'file=@/tmp/probe.txt' https://upload.gofile.io/uploadfile)
+          echo "GOFILE_RESPONSE=$R"
+          URL=$(python -c 'import json,sys,urllib.parse; d=json.load(sys.stdin)["data"]; print("https://"+d["servers"][0]+".gofile.io/download/web/"+d["id"]+"/"+urllib.parse.quote(d["name"]))' <<< "$R")
+          echo "GOFILE_RAW_URL=$URL"
+          curl --fail-with-body -sSLo /tmp/probe.back "$URL"
+          GOT=$(sha256sum /tmp/probe.back | cut -d' ' -f1)
+          echo "WANT_SHA256=$WANT"
+          echo "GOT_SHA256=$GOT"
+          test "$WANT" = "$GOT"
