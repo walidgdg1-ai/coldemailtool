@@ -1,0 +1,60 @@
+name: Normalize Canada public procurement
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-normalize-canada.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q pandas
+      - name: Download canonical CanadaBuys tender and award exports
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          mkdir -p raw/canada
+          cd raw/canada
+          gh release download tender-raw-canada-v1 --pattern 'tenderNoticeComplete-avisAppelOffresComplet.csv' --pattern 'awardNoticeComplete-avisAttributionComplet.csv' --clobber
+          ls -lh
+      - name: Normalize relational warehouse
+        run: python tools/tender_normalize_canada.py --tenders raw/canada/tenderNoticeComplete-avisAppelOffresComplet.csv --awards raw/canada/awardNoticeComplete-avisAttributionComplet.csv --out normalized/canada --start 2023-08-01 --end 2026-07-31
+      - name: Validate fact tables
+        run: |
+          python - <<'PY'
+          import json,pandas as pd
+          q=json.load(open('normalized/canada/data_quality.json'))
+          t=pd.read_csv('normalized/canada/historical_tenders.csv.gz'); a=pd.read_csv('normalized/canada/awards.csv.gz'); b=pd.read_csv('normalized/canada/award_suppliers.csv.gz')
+          assert len(t)>10000,q
+          assert t.Historical_Tender_ID.is_unique
+          assert a.Award_ID.is_unique
+          assert set(a.Historical_Tender_ID).issubset(set(t.Historical_Tender_ID))
+          assert len(a)==len(b)
+          assert (a.Award_Value_Scope=='SUPPLIER_ALLOCATED').all()
+          print(json.dumps(q,indent=2))
+          PY
+      - name: Persist normalized Canada warehouse
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          TAG='tender-normalized-canada-v1'
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title 'Public Tender Normalized — Canada v1' --notes 'Canonical CanadaBuys relational tender/award warehouse for 2023-08-01 through 2026-07-31.' --target "$GITHUB_SHA"
+          find normalized/canada -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+      - name: Build market intelligence
+        run: python tools/tender_market_intelligence.py --input normalized/canada --out intelligence/canada
+      - name: Persist Canada intelligence
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          TAG='tender-intelligence-canada-v1'
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title 'Public Tender Market Intelligence — Canada v1' --notes 'Derived market ranking and lean opportunity signals from the canonical CanadaBuys warehouse.' --target "$GITHUB_SHA"
+          find intelligence/canada -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          echo '=== TOP SEGMENTS ==='
+          head -20 intelligence/canada/market_rank.csv
