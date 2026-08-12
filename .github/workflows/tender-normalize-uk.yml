@@ -1,0 +1,63 @@
+name: Normalize UK public procurement
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-normalize-uk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q pandas
+      - name: Download 36-month Find a Tender OCDS packages
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          mkdir -p raw/uk
+          cd raw/uk
+          for tag in tender-raw-uk_2023-v1 tender-raw-uk_2024-v1 tender-raw-uk_2025-v1 tender-raw-uk_2026-v1; do
+            gh release download "$tag" --pattern 'uk_fts_*.packages.jsonl.gz' --clobber
+          done
+          echo files=$(find . -name '*.gz' | wc -l)
+          du -sh .
+      - name: Consolidate OCDS releases into relational warehouse
+        run: python tools/tender_normalize_uk.py --raw raw/uk --out normalized/uk --start 2023-08-01 --end 2026-07-31
+      - name: Validate fact tables
+        run: |
+          python - <<'PY'
+          import json,pandas as pd
+          q=json.load(open('normalized/uk/data_quality.json'))
+          t=pd.read_csv('normalized/uk/historical_tenders.csv.gz'); a=pd.read_csv('normalized/uk/awards.csv.gz'); b=pd.read_csv('normalized/uk/award_suppliers.csv.gz')
+          assert len(t)>30000,q
+          assert t.Historical_Tender_ID.is_unique
+          assert a.Award_ID.is_unique
+          assert set(a.Historical_Tender_ID).issubset(set(t.Historical_Tender_ID))
+          multi=set(a.loc[a.Supplier_Count.fillna(0)>1,'Award_ID'])
+          if multi: assert b.loc[b.Award_ID.isin(multi),'Award_Value_Allocated'].isna().all()
+          print(json.dumps(q,indent=2))
+          PY
+      - name: Persist normalized UK warehouse
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          TAG='tender-normalized-uk-v1'
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title 'Public Tender Normalized — UK v1' --notes 'Canonical relational Find a Tender OCDS warehouse for 2023-08-01 through 2026-07-31.' --target "$GITHUB_SHA"
+          find normalized/uk -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+      - name: Build tender-grain market intelligence
+        run: python tools/tender_market_intelligence.py --input normalized/uk --out intelligence/uk
+      - name: Persist UK intelligence
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          TAG='tender-intelligence-uk-v1'
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title 'Public Tender Market Intelligence — UK v1' --notes 'Derived market ranking and lean opportunity signals from the canonical UK Find a Tender warehouse.' --target "$GITHUB_SHA"
+          find intelligence/uk -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          echo '=== TOP SEGMENTS ==='
+          head -20 intelligence/uk/market_rank.csv
