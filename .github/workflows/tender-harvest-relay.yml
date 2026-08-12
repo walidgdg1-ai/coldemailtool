@@ -1,32 +1,52 @@
-name: Tender relay transport verify
+name: Tender relay Gofile auth diagnostic
 
 on:
   push:
-    branches:
-      - tender-harvest-relay-20260812
-    paths:
-      - '.github/workflows/tender-harvest-relay.yml'
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-harvest-relay.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  transport-verify:
+  diag:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Upload and redownload probe
+      - name: Probe Gofile guest retrieval
+        run: |
+          set -u
+          echo hello-tender-relay > /tmp/probe.txt
+          R=$(curl -sS -F 'file=@/tmp/probe.txt' https://upload.gofile.io/uploadfile)
+          echo "UPLOAD=$R"
+          python - <<'PY' <<< "$R" > /tmp/meta.env
+          PY
+        shell: bash
+      - name: Full diagnostic
         run: |
           set -euo pipefail
-          printf 'public-tender-relay %s\n' "$(date -u +%FT%TZ)" > /tmp/probe.txt
-          WANT=$(sha256sum /tmp/probe.txt | cut -d' ' -f1)
-          R=$(curl --fail-with-body -sS -F 'file=@/tmp/probe.txt' https://upload.gofile.io/uploadfile)
-          echo "GOFILE_RESPONSE=$R"
-          URL=$(python -c 'import json,sys,urllib.parse; d=json.load(sys.stdin)["data"]; print("https://"+d["servers"][0]+".gofile.io/download/web/"+d["id"]+"/"+urllib.parse.quote(d["name"]))' <<< "$R")
-          echo "GOFILE_RAW_URL=$URL"
-          curl --fail-with-body -sSLo /tmp/probe.back "$URL"
-          GOT=$(sha256sum /tmp/probe.back | cut -d' ' -f1)
-          echo "WANT_SHA256=$WANT"
-          echo "GOT_SHA256=$GOT"
-          test "$WANT" = "$GOT"
+          R=$(curl -sS -F 'file=@/etc/hostname;filename=probe2.txt' https://upload.gofile.io/uploadfile)
+          echo "UPLOAD2=$R"
+          python - "$R" <<'PY' > /tmp/g.env
+          import json,sys,urllib.parse
+          d=json.loads(sys.argv[1])["data"]
+          print("TOKEN="+d["guestToken"])
+          print("ID="+d["id"])
+          print("FOLDER="+d["parentFolder"])
+          print("CODE="+d["parentFolderCode"])
+          print("SERVER="+d["servers"][0])
+          print("NAME="+d["name"])
+          print("RAW=https://"+d["servers"][0]+".gofile.io/download/web/"+d["id"]+"/"+urllib.parse.quote(d["name"]))
+          PY
+          source /tmp/g.env
+          echo "RAW=$RAW"
+          echo '=== no auth ==='
+          curl -sS -D /tmp/h0 -o /tmp/b0 "$RAW"; cat /tmp/h0; echo; xxd -l 300 /tmp/b0 || true
+          echo '=== bearer auth ==='
+          curl -sS -H "Authorization: Bearer $TOKEN" -D /tmp/h1 -o /tmp/b1 "$RAW"; cat /tmp/h1; echo; xxd -l 300 /tmp/b1 || true
+          echo '=== query token ==='
+          curl -sS -D /tmp/h2 -o /tmp/b2 "$RAW?token=$TOKEN"; cat /tmp/h2; echo; xxd -l 300 /tmp/b2 || true
+          echo '=== folder API ==='
+          curl -sS -H "Authorization: Bearer $TOKEN" -D /tmp/h3 "https://api.gofile.io/contents/$FOLDER?page=1&pageSize=100" | tee /tmp/folder.json
+          echo; cat /tmp/h3
