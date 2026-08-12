@@ -15,12 +15,13 @@ jobs:
         env: {GH_TOKEN: '${{ github.token }}'}
         run: |
           mkdir raw && cd raw
-          gh release download tender-raw-france-v1 --pattern 'boamp_2024-01.csv' --pattern 'boamp_2025-01.csv' --clobber
+          gh release download tender-raw-france-v1 --pattern 'boamp_2024-01.csv' --clobber
+          gh release download tender-raw-france-v1 --pattern 'boamp_2025-01.csv' --clobber
           ls -lh
       - name: Inspect NDJSON notice families, award fields and explicit linkage candidates
         run: |
           python - <<'PY'
-          import json,collections,glob,re
+          import json,collections,glob
           fam=collections.Counter(); nature=collections.Counter(); marche=collections.Counter(); titulaire=0; records=0; keys=collections.Counter(); datarefs=collections.Counter(); award_samples=[]; tender_samples=[]
           id_like=collections.Counter()
           for p in glob.glob('raw/*'):
@@ -41,18 +42,18 @@ jobs:
                   if any(w in ref.lower() for w in ('montant','valeur','attrib','march','avis','id','reference','titulaire','offre','candidat')): id_like[ref]+=1
                 is_award=bool(tit not in (None,'',[],{})) or bool(o.get('marche')) or any(x in str(ta.get('nature','')).lower() for x in ('attribution','résultat','resultat'))
                 snap={k:o.get(k) for k in ['idweb','dateparution','datelimitereponse','typeavis','objet','organisme','titulaire','marche','cpv','procedure','donnees','dtcons','gestionsysteme','origine','descripteur','etat','famille','nature_libelle']}
-                if is_award and len(award_samples)<12: award_samples.append(snap)
-                if not is_award and len(tender_samples)<3: tender_samples.append(snap)
+                if is_award and len(award_samples)<20: award_samples.append(snap)
+                if not is_award and len(tender_samples)<5: tender_samples.append(snap)
           print('RECORDS',records)
           print('FAMILY',fam.most_common(30))
           print('NATURE',nature.most_common(50))
           print('MARCHE',marche)
           print('TITULAIRE_PRESENT',titulaire)
           print('TOP_KEYS',keys.most_common(100))
-          print('TOP_DATAREFS',datarefs.most_common(150))
-          print('LINK_VALUE_REFS',id_like.most_common(150))
+          print('TOP_DATAREFS',datarefs.most_common(200))
+          print('LINK_VALUE_REFS',id_like.most_common(200))
           print('\nAWARD_SAMPLES')
-          for x in award_samples: print(json.dumps(x,ensure_ascii=False)[:16000])
+          for x in award_samples: print(json.dumps(x,ensure_ascii=False)[:18000])
           print('\nTENDER_SAMPLES')
-          for x in tender_samples: print(json.dumps(x,ensure_ascii=False)[:10000])
+          for x in tender_samples: print(json.dumps(x,ensure_ascii=False)[:12000])
           PY
