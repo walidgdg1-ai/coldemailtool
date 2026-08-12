@@ -1,0 +1,56 @@
+name: Rank Ireland tender market intelligence
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-market-intelligence-ireland.yml'
+      - 'tools/tender_market_intelligence.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check -q pandas
+      - name: Download normalized Ireland warehouse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p normalized/ireland
+          cd normalized/ireland
+          gh release download tender-normalized-ireland-v1 --pattern 'historical_tenders.csv.gz' --pattern 'awards.csv.gz' --pattern 'award_suppliers.csv.gz' --clobber
+      - name: Build market intelligence
+        run: python tools/tender_market_intelligence.py --input normalized/ireland --out intelligence/ireland
+      - name: Validate rankings
+        run: |
+          python - <<'PY'
+          import json,pandas as pd
+          r=pd.read_csv('intelligence/ireland/market_rank.csv')
+          a=pd.read_csv('intelligence/ireland/historical_anomalies.csv')
+          assert len(r)>100
+          assert (r['Market_Attractiveness_Score'].between(0,100)).all()
+          assert len(a)>100
+          assert not a['Historical_Tender_ID'].isna().any()
+          print(r.head(30).to_string(index=False))
+          print(json.dumps(json.load(open('intelligence/ireland/market_intelligence_summary.json')),indent=2))
+          PY
+      - name: Persist intelligence outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='tender-intelligence-ireland-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Market Intelligence — Ireland v1' --notes 'Market ranking, historical anomalies, recurring buyers and supplier concentration derived from the canonical Ireland normalized warehouse. Scores are analytical/derived and remain separate from verified source facts.' --target "$GITHUB_SHA"
+          fi
+          find intelligence/ireland -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
