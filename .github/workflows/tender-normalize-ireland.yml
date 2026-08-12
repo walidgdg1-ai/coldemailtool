@@ -1,0 +1,67 @@
+name: Normalize Ireland public procurement
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-normalize-ireland.yml'
+      - 'tools/tender_normalize_ireland.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q pandas requests
+      - name: Download official Ireland consolidated procurement dataset
+        run: |
+          python - <<'PY'
+          import requests
+          u='https://assets.gov.ie/static/documents/2fb1e069/Public_Procurement_Opendata_Dataset.csv'
+          r=requests.get(u,timeout=300); r.raise_for_status()
+          open('ireland.csv','wb').write(r.content)
+          print('bytes',len(r.content))
+          PY
+      - name: Normalize 36-month intelligence window
+        run: python tools/tender_normalize_ireland.py --input ireland.csv --out normalized/ireland --start 2023-08-01 --end 2026-07-31
+      - name: Validate outputs
+        run: |
+          python - <<'PY'
+          import json,pandas as pd
+          q=json.load(open('normalized/ireland/data_quality.json'))
+          assert q['normalized_tenders'] > 10000, q
+          assert q['award_groups'] > 1000, q
+          assert q['unique_buyers'] > 500, q
+          t=pd.read_csv('normalized/ireland/historical_tenders.csv.gz')
+          a=pd.read_csv('normalized/ireland/awards.csv.gz')
+          b=pd.read_csv('normalized/ireland/award_suppliers.csv.gz')
+          assert t['Historical_Tender_ID'].is_unique
+          assert a['Award_ID'].is_unique
+          assert not t['Historical_Tender_ID'].isna().any()
+          assert not a['Award_ID'].isna().any()
+          # Multi-supplier group totals must not be allocated to suppliers.
+          if len(b):
+            multi=set(a.loc[a['Supplier_Count'].fillna(0)>1,'Award_ID'])
+            assert b.loc[b['Award_ID'].isin(multi),'Award_Value_Allocated'].isna().all()
+          print(json.dumps(q,indent=2))
+          PY
+      - name: Persist normalized intelligence as private GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-ireland-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Normalized — Ireland v1' --notes 'Canonical relational normalization for the 2023-08-01 through 2026-07-31 intelligence window. Includes tenders, awards, award-supplier bridge, buyers, suppliers, category analytics, quality report and integrity manifest.' --target "$GITHUB_SHA"
+          fi
+          find normalized/ireland -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
