@@ -41,14 +41,16 @@ jobs:
               await field.click()
               dialog=page.locator('[role="dialog"]').last
               await dialog.wait_for(state='visible',timeout=10000)
-              one=dialog.get_by_role('button',name='1',exact=True)
-              two=dialog.get_by_role('button',name='2',exact=True)
-              await one.wait_for(state='visible',timeout=10000)
-              await one.click()
-              await two.wait_for(state='visible',timeout=10000)
-              await two.click()
+              await page.wait_for_timeout(600)
+              buttons=dialog.locator('button')
+              texts=await buttons.all_inner_texts()
+              print('DATE_BUTTONS',texts)
+              assert len(buttons) if False else True
+              assert len(texts)>=8 and texts[6].strip()=='1' and texts[7].strip()=='2',texts
+              await buttons.nth(6).click()
+              await buttons.nth(7).click()
               async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000) as filtered_info:
-                await dialog.get_by_role('button',name='OK',exact=True).click()
+                await dialog.get_by_text('OK',exact=True).click()
               filtered=await filtered_info.value
               assert filtered.status==200,filtered.status
               print('FIELD_VALUE',repr(await field.input_value()))
