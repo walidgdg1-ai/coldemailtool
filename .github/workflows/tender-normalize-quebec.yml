@@ -1,0 +1,82 @@
+name: Normalize Quebec SEAO public procurement
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-normalize-quebec.yml'
+      - 'tools/tender_normalize_quebec.py'
+      - 'tools/patch_quebec_normalizer_runtime.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-normalize-quebec-v1
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q pandas
+      - name: Download official SEAO monthly OCDS packages
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          mkdir -p raw/quebec
+          gh release download tender-raw-quebec-v1 --pattern 'mensuel_*.json' --dir raw/quebec --clobber
+          echo "monthly_assets=$(find raw/quebec -name 'mensuel_*.json' | wc -l)"
+          du -sh raw/quebec
+          test "$(find raw/quebec -name 'mensuel_*.json' | wc -l)" -ge 30
+      - name: Apply SQLite cursor isolation patch
+        run: python tools/patch_quebec_normalizer_runtime.py
+      - name: Normalize OCDS to canonical relational warehouse
+        run: python tools/tender_normalize_quebec.py --raw-dir raw/quebec --out normalized/quebec --start 2023-08-01 --end 2026-07-31
+      - name: Persist pre-validation QA
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          TAG='tender-quebec-qa-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Quebec SEAO normalization QA v1' --notes 'Pre-validation QA for canonical Quebec SEAO OCDS normalization.' --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" normalized/quebec/data_quality.json normalized/quebec/run_manifest.json --clobber
+      - name: Validate canonical integrity
+        run: |
+          python - <<'PY'
+          import json,pandas as pd
+          q=json.load(open('normalized/quebec/data_quality.json'))
+          print(json.dumps(q,indent=2,ensure_ascii=False))
+          assert q['canonical_tenders'] > 10000, q
+          assert q['award_groups'] > 1000, q
+          assert q['unique_buyers'] > 500, q
+          assert all(q['integrity'].values()), q['integrity']
+          t=pd.read_csv('normalized/quebec/historical_tenders.csv.gz')
+          a=pd.read_csv('normalized/quebec/awards.csv.gz')
+          b=pd.read_csv('normalized/quebec/award_suppliers.csv.gz')
+          assert t.Historical_Tender_ID.is_unique
+          assert a.Award_ID.is_unique
+          assert not t.Historical_Tender_ID.isna().any()
+          assert not a.Award_ID.isna().any()
+          if len(b):
+            multi=set(a.loc[a.Supplier_Count.fillna(0)>1,'Award_ID'])
+            assert b.loc[b.Award_ID.isin(multi),'Award_Value_Allocated'].isna().all()
+          print('QUEBEC_CANONICAL_VALIDATION_PASS')
+          PY
+      - name: Publish normalized Quebec warehouse
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-quebec-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Normalized — Quebec SEAO v1' --notes 'Canonical relational Quebec SEAO OCDS warehouse for 2023-08-01 through 2026-07-31. Uses monthly packages only to avoid weekly overlap, official numberOfTenderers for competition, and non-duplicating multi-supplier award grain.' --target "$GITHUB_SHA"
+          fi
+          find normalized/quebec -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
