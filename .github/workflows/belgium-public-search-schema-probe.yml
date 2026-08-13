@@ -23,7 +23,7 @@ jobs:
       - name: Capture app-generated publication-date range payload
         run: |
           python - <<'PY'
-          import asyncio,json
+          import asyncio
           from playwright.async_api import async_playwright
           API='/api/sea/search/publications'
           async def main():
@@ -31,9 +31,7 @@ jobs:
               browser=await p.chromium.launch(headless=True)
               page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1400})
               requests=[]
-              def on_request(req):
-                if API in req.url.lower(): requests.append(req.post_data)
-              page.on('request',on_request)
+              page.on('request',lambda req: requests.append(req.post_data) if API in req.url.lower() else None)
               async with page.expect_response(lambda r: API in r.url.lower(),timeout=90000) as first_info:
                 await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
               first=await first_info.value
@@ -42,20 +40,18 @@ jobs:
               field=page.locator('input').nth(6)
               await field.click()
               dialog=page.locator('[role="dialog"]').last
-              assert await dialog.count(), 'date dialog not found'
+              await dialog.wait_for(state='visible',timeout=10000)
               one=dialog.get_by_role('button',name='1',exact=True)
               two=dialog.get_by_role('button',name='2',exact=True)
-              assert await one.count() and await two.count(), 'August day buttons not found'
+              await one.wait_for(state='visible',timeout=10000)
               await one.click()
+              await two.wait_for(state='visible',timeout=10000)
               await two.click()
-              before=len(requests)
               async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000) as filtered_info:
                 await dialog.get_by_role('button',name='OK',exact=True).click()
               filtered=await filtered_info.value
               assert filtered.status==200,filtered.status
-              await page.wait_for_timeout(300)
               print('FIELD_VALUE',repr(await field.input_value()))
-              print('REQUEST_COUNT_BEFORE_OK',before,'AFTER',len(requests))
               print('APP_GENERATED_FILTER_BODY',requests[-1] if requests else None)
               body=await filtered.json(); pubs=body.get('publications') or []
               dates=[x.get('publicationDate') for x in pubs if x.get('publicationDate')]
