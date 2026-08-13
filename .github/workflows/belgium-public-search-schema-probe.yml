@@ -20,7 +20,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Map publication-date inputs with public Playwright locators
+      - name: Inspect publication-date public picker
         run: |
           python - <<'PY'
           import asyncio,json
@@ -34,27 +34,26 @@ jobs:
                 await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
               first=await first_info.value
               assert first.status==200,first.status
-              await page.wait_for_timeout(2000)
-              all_inputs=page.locator('input')
-              label=page.get_by_text('Publication date',exact=True).first
-              assert await label.count(), 'Publication date text not found'
-              found=[]
-              parent=label
-              for depth in range(1,6):
-                parent=parent.locator('..')
-                local=parent.locator('input')
-                if await local.count():
-                  for j in range(await local.count()):
-                    target=local.nth(j)
-                    index=-1
-                    tid=await target.get_attribute('id')
-                    for k in range(await all_inputs.count()):
-                      if tid and await all_inputs.nth(k).get_attribute('id')==tid:
-                        index=k;break
-                    found.append({'depth':depth,'index':index,'id':tid,'type':await target.get_attribute('type'),'placeholder':await target.get_attribute('placeholder'),'aria':await target.get_attribute('aria-label')})
-                  break
-              print('PUBLICATION_DATE_INPUTS',json.dumps(found,ensure_ascii=False))
-              assert found,found
+              await page.wait_for_timeout(1500)
+              field=page.locator('input').nth(6)
+              print('VALUE_BEFORE',repr(await field.input_value()))
+              await field.click()
+              await page.wait_for_timeout(800)
+              print('VALUE_AFTER_CLICK',repr(await field.input_value()))
+              dialogs=page.locator('[role="dialog"]')
+              print('DIALOG_COUNT',await dialogs.count())
+              if await dialogs.count():
+                print('DIALOG_TEXT',repr((await dialogs.last.inner_text())[:8000]))
+                print('DIALOG_BUTTONS',json.dumps(await dialogs.last.locator('button').all_inner_texts(),ensure_ascii=False))
+              else:
+                visible=[]
+                for i in range(await page.locator('button').count()):
+                  b=page.locator('button').nth(i)
+                  if await b.is_visible():
+                    t=(await b.inner_text()).strip()
+                    aria=await b.get_attribute('aria-label')
+                    if t or aria: visible.append({'i':i,'text':t,'aria':aria})
+                print('VISIBLE_BUTTONS',json.dumps(visible[-80:],ensure_ascii=False))
               await browser.close()
           asyncio.run(main())
           PY
