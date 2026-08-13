@@ -1,0 +1,65 @@
+name: Probe exact TED iteration continuation
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/ted-continuation-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Probe persisted ITERATION token from exact page 201 checkpoint
+        run: |
+          python - <<'PY'
+          import json, pathlib, urllib.request, urllib.error
+          url='https://api.ted.europa.eu/v3/notices/search'
+          token='AAABn/GfyzkAD3oLY+XSGPBWxsOyLuQ/gzFON1r9yf6YLt4TzoCkbtMtvhW8bnnlKVyj8hUJ1T8qPTjbpDeVKlwpmDy7yaIOBFBgcylhnAEoSFFxAHpK'
+          payload={
+            'query':'form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC',
+            'paginationMode':'ITERATION',
+            'limit':5,
+            'iterationNextToken':token,
+          }
+          req=urllib.request.Request(url,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','Accept':'application/json'},method='POST')
+          out={'request':{'query':payload['query'],'paginationMode':'ITERATION','limit':5,'checkpoint_page':201,'checkpoint_archived_records':50000},'http_status':None,'token_accepted':False,'response_keys':[],'record_count':0,'first_record_summaries':[],'next_token_present':False,'next_token':None,'error':None}
+          try:
+            with urllib.request.urlopen(req,timeout=60) as r:
+              out['http_status']=r.status
+              obj=json.loads(r.read())
+              out['response_keys']=list(obj) if isinstance(obj,dict) else []
+              notices=(obj.get('notices') or obj.get('results') or obj.get('items') or []) if isinstance(obj,dict) else []
+              out['record_count']=len(notices) if isinstance(notices,list) else 0
+              for n in (notices[:5] if isinstance(notices,list) else []):
+                if isinstance(n,dict):
+                  out['first_record_summaries'].append({k:n.get(k) for k in ('publication-number','publicationNumber','notice-id','id','publication-date','publicationDate','form-type','formType') if k in n})
+              nxt=obj.get('iterationNextToken') if isinstance(obj,dict) else None
+              out['next_token_present']=bool(nxt)
+              out['next_token']=nxt
+              out['token_accepted']=r.status==200 and out['record_count']>0
+          except urllib.error.HTTPError as e:
+            out['http_status']=e.code
+            body=e.read().decode('utf-8','replace')
+            out['error']=body[:8000]
+          except Exception as e:
+            out['error']=repr(e)
+          pathlib.Path('tender_pipeline').mkdir(exist_ok=True)
+          pathlib.Path('tender_pipeline/ted_continuation_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+      - name: Commit probe result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/ted_continuation_probe.json
+          git commit -m 'Record TED page-201 continuation probe' || exit 0
+          git pull --rebase origin tender-harvest-relay-20260812
+          git push origin HEAD:tender-harvest-relay-20260812
