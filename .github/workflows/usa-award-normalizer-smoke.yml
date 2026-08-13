@@ -1,0 +1,76 @@
+name: Smoke USAspending award-grain normalizer FY2026
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/usa-award-normalizer-smoke.yml'
+      - 'tools/tender_normalize_usa_awards.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: usa-award-normalizer-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download official FY2026 USAspending Contracts Full
+        run: |
+          set -euo pipefail
+          mkdir -p raw/usa
+          gh release download tender-raw-usa-fy2026-v1 --pattern '*.zip' --dir raw/usa --clobber
+          ls -lh raw/usa
+      - name: Ingest FY2026 transaction shards to narrow Parquet candidates
+        run: |
+          set -euo pipefail
+          ZIP=$(find raw/usa -name '*.zip' -print -quit)
+          python tools/tender_normalize_usa_awards.py --work work/usa --ingest-zip "$ZIP" --start 2025-10-01 --end 2026-07-31
+          du -sh work/usa
+      - name: Finalize award-grain FY2026 smoke warehouse
+        id: finalize
+        shell: bash
+        run: |
+          set +e
+          python tools/tender_normalize_usa_awards.py --work work/usa --finalize --out normalized/usa-fy2026 --start 2025-10-01 --end 2026-07-31 > usa_finalize.log 2>&1
+          rc=$?
+          cat usa_finalize.log
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Publish QA release when successful
+        if: steps.finalize.outputs.exit_code == '0'
+        run: |
+          set -euo pipefail
+          TAG='tender-usa-award-smoke-fy2026-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'USAspending award-grain smoke FY2026' --notes 'FY2026 smoke of the canonical USA award-first normalizer. Not the final 36-month warehouse.' --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" normalized/usa-fy2026/data_quality.json normalized/usa-fy2026/run_manifest.json --clobber
+          cat normalized/usa-fy2026/data_quality.json
+      - name: Publish private diagnostic issue when failed
+        if: steps.finalize.outputs.exit_code != '0'
+        run: |
+          tail -n 500 usa_finalize.log > usa_finalize_tail.log
+          {
+            echo 'Temporary USA award normalizer diagnostic. Safe to close after repair.'
+            echo
+            echo '```text'
+            cat usa_finalize_tail.log
+            echo '```'
+          } > issue_body.md
+          gh issue create --title "TEMP USA award normalizer traceback $GITHUB_RUN_ID" --body-file issue_body.md
+      - name: Enforce smoke success
+        run: test '${{ steps.finalize.outputs.exit_code }}' = '0'
