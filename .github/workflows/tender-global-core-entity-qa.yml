@@ -1,0 +1,51 @@
+name: Audit global core entity duplicates
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-global-core-entity-qa.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download entity parquet files
+        run: |
+          mkdir -p qa
+          gh release download tender-normalized-global-core-v1 --pattern 'buyers.parquet' --pattern 'suppliers.parquet' --dir qa --clobber
+      - name: Audit duplicate entity keys and exact-row duplication
+        run: |
+          python - <<'PY'
+          import duckdb,json
+          from pathlib import Path
+          con=duckdb.connect()
+          result={}
+          for name,key in [('buyers','Buyer_ID'),('suppliers','Supplier_ID')]:
+              p=f'qa/{name}.parquet'
+              total,distinct_keys=con.execute(f"SELECT count(*),count(distinct Warehouse_Source||'|'||{key}) FROM read_parquet('{p}')").fetchone()
+              dup_keys,dup_rows=con.execute(f"SELECT count(*),coalesce(sum(n-1),0) FROM (SELECT Warehouse_Source,{key},count(*) n FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1)").fetchone()
+              distinct_rows=con.execute(f"SELECT count(*) FROM (SELECT DISTINCT * FROM read_parquet('{p}'))").fetchone()[0]
+              conflict_keys=con.execute(f"SELECT count(*) FROM (SELECT Warehouse_Source,{key},count(*) n,count(distinct hash(*)) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 AND count(distinct hash(*))>1)").fetchone()[0]
+              top=con.execute(f"SELECT Warehouse_Source,{key},count(*) n,count(distinct hash(*)) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 ORDER BY n DESC LIMIT 20").fetchall()
+              result[name]={'rows':total,'source_entity_keys':distinct_keys,'duplicate_keys':dup_keys,'extra_rows_from_duplicate_keys':int(dup_rows),'distinct_full_rows':distinct_rows,'conflicting_duplicate_keys':conflict_keys,'top_duplicate_keys':[list(x) for x in top]}
+          Path('qa/entity_duplicate_audit.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+          print(json.dumps(result,indent=2))
+          PY
+      - name: Persist audit
+        run: |
+          TAG='tender-global-core-entity-qa-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Global Core entity duplicate audit v1' --notes 'Buyer/supplier duplicate-key audit for Global Core v1.' --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" qa/entity_duplicate_audit.json --clobber
