@@ -1,0 +1,41 @@
+name: Preflight TED staged full pipeline
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/ted-full-pipeline-preflight.yml'
+      - 'tools/ted_stage_orchestrator.py'
+      - 'tools/ted_finalize_stages.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Compile full TED pipeline scripts
+        run: |
+          python -m py_compile \
+            tools/tender_normalize_ted_bulk.py \
+            tools/patch_ted_normalizer_runtime.py \
+            tools/ted_stage_orchestrator.py \
+            tools/ted_finalize_stages.py
+      - name: Validate 45-package staging plan
+        run: |
+          python - <<'PY'
+          import importlib.util
+          spec=importlib.util.spec_from_file_location('stage','tools/ted_stage_orchestrator.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+          assert len(m.KEYS)==45,m.KEYS
+          assert len(set(m.KEYS))==45
+          assert m.KEYS[0]=='monthly-2023-08'
+          assert m.KEYS[-1]=='daily-2026-00155'
+          print('TED_FULL_PIPELINE_PREFLIGHT_PASS',len(m.KEYS),m.KEYS[0],m.KEYS[-1])
+          PY
