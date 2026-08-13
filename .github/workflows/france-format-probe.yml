@@ -4,7 +4,7 @@ on:
     branches: [tender-harvest-relay-20260812]
     paths: ['.github/workflows/france-format-probe.yml']
   workflow_dispatch:
-permissions: {contents: read}
+permissions: {contents: write}
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -16,29 +16,46 @@ jobs:
           mkdir raw && cd raw
           gh release download tender-raw-france-v1 --pattern 'boamp_2024-01.csv' --clobber
           ls -lh
-      - name: Inspect records and schema transitions
+      - name: Inspect exact records and dialect
         run: |
           python - <<'PY'
           from pathlib import Path
-          import csv,collections
+          import csv,json,collections
           p=Path('raw/boamp_2024-01.csv')
-          b=p.read_bytes()[:20000]
-          print('FIRST_BYTES',repr(b[:500]))
-          for enc in ('utf-8-sig','utf-8','cp1252','latin1'):
-            try: text=b.decode(enc); print('ENCODING',enc); break
-            except: pass
+          b=p.read_bytes()[:100000]
+          enc='utf-8-sig'
+          try:text=b.decode(enc)
+          except:text=b.decode('latin1');enc='latin1'
           lines=text.splitlines()
+          dialects={}
           for delim in (',',';','\t','|'):
-            print('DELIM',repr(delim),'COUNTS_FIRST10',[len(next(csv.reader([ln],delimiter=delim))) for ln in lines[:10]])
-          print('FIRST_5_LINES')
-          for i,ln in enumerate(lines[:5],1): print('LINE',i,repr(ln[:4000]))
-          # Scan physical-line separator counts without parsing the whole 96 MB into pandas.
-          counts=collections.Counter(); samples={}
-          with open(p,'r',encoding='utf-8-sig',errors='replace',newline='') as f:
-            for i,line in enumerate(f,1):
-              n=line.count(',')+1; counts[n]+=1
-              if n not in samples:samples[n]=(i,line[:500])
-              if i>=200000:break
-          print('COMMA_FIELDCOUNT_APPROX_TOP',counts.most_common(20))
-          print('SAMPLES',samples)
+            vals=[]
+            for ln in lines[:20]:
+              try: vals.append(len(next(csv.reader([ln],delimiter=delim))))
+              except: vals.append(-1)
+            dialects[repr(delim)]=vals
+          # Use csv.Sniffer too, but never trust it alone.
+          sniff=None
+          try:
+            d=csv.Sniffer().sniff(text[:20000],delimiters=',;\t|')
+            sniff={'delimiter':d.delimiter,'quotechar':d.quotechar,'doublequote':d.doublequote}
+          except Exception as e: sniff={'error':repr(e)}
+          sample_rows={}
+          for delim in (',',';','\t','|'):
+            try:
+              r=csv.reader(lines[:10],delimiter=delim)
+              sample_rows[repr(delim)]=[row[:20] for row in list(r)[:5]]
+            except Exception as e: sample_rows[repr(delim)]={'error':repr(e)}
+          summary={'file':p.name,'bytes':p.stat().st_size,'encoding':enc,'first_bytes_repr':repr(b[:1000]),'first_lines':[ln[:8000] for ln in lines[:8]],'dialect_field_counts':dialects,'sniffer':sniff,'sample_rows':sample_rows}
+          Path('tender_pipeline').mkdir(exist_ok=True)
+          Path('tender_pipeline/france_format_probe.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(summary,ensure_ascii=False,indent=2)[:30000])
           PY
+      - name: Commit probe summary
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/france_format_probe.json
+          git commit -m 'Record BOAMP raw format probe' || exit 0
+          git pull --rebase origin tender-harvest-relay-20260812
+          git push origin HEAD:tender-harvest-relay-20260812
