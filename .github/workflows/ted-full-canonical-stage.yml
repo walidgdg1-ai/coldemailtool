@@ -8,6 +8,7 @@ on:
       - 'tools/patch_ted_normalizer_runtime.py'
       - 'tools/tender_normalize_ted_bulk.py'
       - 'tools/ted_stage_orchestrator.py'
+      - 'tools/ted_finalize_stages.py'
   workflow_dispatch:
 
 permissions:
@@ -83,6 +84,7 @@ jobs:
           rm -rf readback && mkdir readback
           gh release download tender-normalized-ted-stage-v1 \
             --pattern 'ted-stage-checkpoint.json' \
+            --pattern 'ted-stage-summary.json' \
             --dir readback --clobber
           python - <<'PY'
           import json
@@ -92,5 +94,76 @@ jobs:
           assert q.get('completed_count')==45,q
           assert q.get('expected_count')==45,q
           assert q.get('raw_xml_sum')==2566835,q
+          s=json.load(open('readback/ted-stage-summary.json'))
+          assert s.get('status')=='STAGE_COMPLETE',s
+          assert s.get('completed_packages')==45,s
+          assert s.get('raw_xml_sum')==2566835,s
           print('TED_FULL_STAGE_READBACK_PASS')
+          PY
+
+      - name: Install finalizer dependency
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download all validated stage facts for global merge
+        run: |
+          set -euo pipefail
+          rm -rf stage_input && mkdir stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-*.historical_tenders.csv.gz' --dir stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-*.awards.csv.gz' --dir stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-*.award_suppliers.csv.gz' --dir stage_input
+          cp readback/ted-stage-summary.json stage_input/ted-stage-summary.json
+          echo "TED stage fact assets: $(find stage_input -type f | wc -l) files"
+
+      - name: Finalize cross-package canonical warehouse
+        run: |
+          set -euo pipefail
+          python tools/ted_finalize_stages.py \
+            --stage-dir stage_input \
+            --stage-summary stage_input/ted-stage-summary.json \
+            --out normalized/ted
+
+      - name: Validate final TED warehouse and guard release sizes
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          q=json.load(open('normalized/ted/data_quality.json'))
+          print(json.dumps(q,indent=2))
+          assert q['status']=='PASS',q
+          assert q['source_raw_xml']==2566835,q
+          assert q['stage_packages']==45,q
+          assert all(q['integrity'].values()),q
+          assert q['canonical_counts']['historical_tenders']>500000,q
+          assert q['canonical_counts']['awards']>500000,q
+          limit=1_900_000_000
+          for p in Path('normalized/ted').iterdir():
+              if p.is_file():
+                  print('ASSET',p.name,p.stat().st_size)
+                  assert p.stat().st_size < limit,(p.name,p.stat().st_size)
+          print('TED_GLOBAL_CANONICAL_PASS',q['canonical_counts'])
+          PY
+
+      - name: Publish and read back final TED warehouse
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-ted-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Normalized — TED Official Bulk v1' \
+              --notes 'Canonical dual-stack TED warehouse from all 45 official bulk packages / 2,566,835 source XML files. Cross-package identities deduplicated with strict FK and consortium-value integrity gates.' \
+              --target tender-harvest-relay-20260812
+          fi
+          find normalized/ted -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+          rm -rf final_readback && mkdir final_readback
+          gh release download "$TAG" --pattern data_quality.json --pattern run_manifest.json --dir final_readback --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('final_readback/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_raw_xml']==2566835,q
+          assert all(q['integrity'].values()),q
+          print('TED_FINAL_RELEASE_READBACK_PASS',q['canonical_counts'])
           PY
