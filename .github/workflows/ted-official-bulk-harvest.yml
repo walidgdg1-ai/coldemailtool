@@ -1,0 +1,59 @@
+name: Harvest official TED XML bulk packages
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/ted-official-bulk-harvest.yml'
+      - 'tools/ted_official_bulk_harvest.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-ted-official-bulk-v1
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prepare persistent raw release and checkpoint
+        run: |
+          set -euo pipefail
+          TAG='tender-raw-ted-official-bulk-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'TED Official XML Bulk Archive v1' \
+              --notes 'Authoritative TED XML bulk packages downloaded directly from TED monthly/daily package endpoints. Monthly Aug 2023 through Jul 2026 plus daily Aug 3-13 2026 OJ S editions. Raw packages are persisted with SHA-256, member/XML counts, manifests and a resumable checkpoint.' \
+              --target "$GITHUB_SHA"
+          fi
+          mkdir -p checkpoint
+          gh release download "$TAG" --pattern 'ted-official-bulk-checkpoint.json' --dir checkpoint --clobber || true
+      - name: Download and persist every missing official package
+        run: |
+          set -euo pipefail
+          ARGS=(--release-tag tender-raw-ted-official-bulk-v1 --work ted_bulk)
+          if [ -f checkpoint/ted-official-bulk-checkpoint.json ]; then ARGS+=(--checkpoint checkpoint/ted-official-bulk-checkpoint.json); fi
+          python tools/ted_official_bulk_harvest.py "${ARGS[@]}"
+      - name: Read back final checkpoint
+        run: |
+          set -euo pipefail
+          mkdir -p readback
+          gh release download tender-raw-ted-official-bulk-v1 --pattern 'ted-official-bulk-summary.json' --dir readback --clobber
+          cat readback/ted-official-bulk-summary.json
+          python - <<'PY'
+          import json
+          q=json.load(open('readback/ted-official-bulk-summary.json'))
+          assert q['status']=='COMPLETE',q
+          assert q['completed_packages']==q['expected_packages'],q
+          assert q['completed_xml_sum']>500000,q
+          print('TED_OFFICIAL_BULK_ARCHIVE_PASS',q['completed_packages'],q['completed_xml_sum'])
+          PY
