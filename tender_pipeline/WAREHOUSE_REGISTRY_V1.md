@@ -1,6 +1,6 @@
 # Public Tender Intelligence — Canonical Warehouse Registry v1
 
-Updated: 2026-08-13 03:43 Europe/Brussels
+Updated: 2026-08-13
 
 This file is the human-readable source of truth for bulk procurement warehouses produced by the tender pipeline. A country/source is `DONE` only when canonical outputs were normalized, integrity-validated, persisted to a private GitHub Release, and read back by the workflow.
 
@@ -11,11 +11,14 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 | United Kingdom | DONE | 132,484 | 164,009 | 263,283 | `tender-normalized-uk-v1` | Find a Tender OCDS relational warehouse |
 | Quebec / SEAO | DONE | 164,301 | 221,450 | 224,839 | `tender-normalized-quebec-v1` | Official SEAO OCDS; tender identity = `ocid`; official `numberOfTenderers` used when published; accidental SQLite WAL/SHM release sidecars removed |
 | France / BOAMP | DONE | 282,684 | 102,159 | 100,348 | `tender-normalized-france-v1` | Official BOAMP monthly UTF-8 semicolon CSV with embedded JSON; conservative tender↔award linkage; source metadata corrected; missing bidder counts remain UNKNOWN |
-| Germany eForms | IN_PROGRESS | full 36-month run active | pending | pending | target `tender-normalized-germany-v1` | July smoke passed end-to-end. Official monthly UBL/eForms XML; awards at `LotResult` grain; received-tender counts from official eForms statistics |
-| TED RESULT census | IN_PROGRESS | 195,000 safe unique notices at latest fully committed checkpoint | RESULT/AWARD census | source winner arrays preserved | Drive initial 50k + continuation releases | Old fixed-size loop hit TED `timedOut=true` around record 198.5k. Adaptive record-range engine now downshifts 250→100→50→25→10→5→1 on the same cursor and flags any minimal-field fallback. Fresh run `31658607961` queued from safe 195k checkpoint |
-| USA federal awards | IN_PROGRESS | FY2026 smoke: 3,657,873 award-first reconstructed procurements | FY2026 smoke: 3,657,873 | one supplier bridge per canonical award | target `tender-normalized-usa-awards-v1` | Full FY2023→FY2026 job active. USAspending `Contracts_Full`; latest transaction per `contract_award_unique_key`; explicitly AWARD_FIRST_RECONSTRUCTED, not claimed as original SAM.gov notices |
+| Validated Global Core | BUILDING | expected 621,515 | union of validated awards | union of validated bridges | target `tender-normalized-global-core-v1` | Five validated lanes only: Ireland + Canada federal + UK + Quebec + France. CSV.gz + Parquet relational union; country/currency preserved in analytics. Run `31660607912` |
+| Germany eForms | IN_PROGRESS | full 36-month run active | pending | pending | target `tender-normalized-germany-v1` | Previous run parsed all 857,016 XML then hit a pandas readback bug after normalization. Readback hardened with `low_memory=False`; replacement run `31660331188` active |
+| TED RESULT census | IN_PROGRESS | legacy safe checkpoint: 195,000 unique notices | RESULT/AWARD census | source winner arrays preserved | authoritative target `tender-ted-monthly-census-v1` | Deep global ITERATION cursor becomes toxic around ~198.5k even at limit=1. Architecture replaced by 36 independent monthly date partitions with atomic raw+normalized+manifest persistence and final `sum(months) == global total` reconciliation. Run `31660463172` active |
+| USA federal awards | IN_PROGRESS | FY2026 smoke: 3,657,873; full input ≈18.81M candidate transactions | pending full canonical count | one supplier bridge per canonical award | target `tender-normalized-usa-awards-v1` | First full ingest succeeded but global wide sort exhausted DuckDB spill. Replacement finalizer ranks narrow source-row locators then joins winners back to wide rows. Run `31660382131` active. Explicitly `AWARD_FIRST_RECONSTRUCTED`, never represented as original SAM.gov notices |
 
-## Verified quality highlights
+## Current validated core
+
+The five completed country lanes contain **621,515 canonical tender/procurement rows** before Germany, USA or the exhaustive TED census are added.
 
 ### Quebec / SEAO
 - 335,789 official OCDS releases read in the 36-month window.
@@ -26,7 +29,6 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 - Award-value coverage: 98.49%.
 - Official bidder-count coverage: 99.04%.
 - Integrity gates: PASS.
-- Runtime SQLite WAL/SHM sidecars were removed from the release without changing canonical rows.
 
 ### France / BOAMP
 - 428,601 raw monthly records read.
@@ -34,11 +36,9 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 - 102,159 award groups.
 - 100,348 award↔supplier links.
 - 34,686 unique buyers; 49,997 unique suppliers.
-- Raw parse errors: 0.
-- Embedded JSON errors: 0.
+- Raw parse errors: 0; embedded JSON errors: 0.
 - Integrity gates: PASS.
-- Public bidder-count coverage at current canonical BOAMP grain: effectively absent; UNKNOWN is retained instead of inference.
-- Source-format metadata repaired to the actual UTF-8 semicolon CSV + embedded JSON container without changing canonical rows.
+- Missing bidder counts remain `UNKNOWN` rather than inferred.
 
 ### USA FY2026 smoke
 - 4,098,932 transaction candidates reduced to 3,657,873 canonical federal contract awards.
@@ -56,12 +56,14 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 4. Derived rankings and market intelligence are explicitly labeled `DERIVED`.
 5. USAspending award data is explicitly modeled as award-first reconstruction; it is not misrepresented as original SAM.gov opportunity-notice data.
 6. Bulk archive continuation must be checkpointed and restartable; a failed run cannot silently advance a cursor.
-7. TED physical duplicate shards caused by an earlier checkpoint race are lineage/storage duplicates only and must not be counted twice in the unique census.
-8. TED HTTP 200 responses with `timedOut=true` and an empty `notices` array are transient query-complexity failures, not census completion; the adaptive engine must retry the identical cursor at smaller batch sizes before any fallback.
+7. TED physical duplicate shards from the retired deep-cursor lineage are storage/lineage duplicates only and must never be counted twice.
+8. The authoritative TED census is accepted only when every date partition is complete and the sum of partition counts exactly equals an independently read global `totalNoticeCount` for the same fixed window/query.
+9. Cross-country monetary analytics must preserve source currency unless an explicit sourced FX normalization layer is added later.
 
 ## Current execution queue
 
-1. Finish full Germany 36-month eForms warehouse and publish `tender-normalized-germany-v1`.
-2. Run adaptive TED RESULT census from the safe 195,000-record checkpoint, then self-chain in up-to-50k record blocks until exhaustive completion.
-3. Finish USA FY2023→FY2026 award-grain canonicalization and publish `tender-normalized-usa-awards-v1`.
-4. Reconcile the one duplicated TED physical shard from the earlier checkpoint race after the adaptive lineage crosses 200k safely.
+1. Complete and publish the five-country `tender-normalized-global-core-v1` master.
+2. Finish Germany 36-month eForms normalization and integrity validation.
+3. Finish USA FY2023→FY2026 memory-bounded award-grain canonicalization.
+4. Finish the 36-partition TED monthly exhaustive census and reconcile its exact sum to the global total.
+5. After Germany/USA validation, build a later Global Core revision that incorporates them without weakening the validated-country gate.
