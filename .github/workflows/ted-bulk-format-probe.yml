@@ -1,0 +1,46 @@
+name: Probe TED monthly bulk archive format
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/ted-bulk-format-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download one official monthly package
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors \
+            -A 'PTIE-public-data-reuser/1.0' \
+            'https://ted.europa.eu/packages/monthly/2023-8' \
+            -o package.bin
+          ls -lh package.bin
+          file package.bin
+          sha256sum package.bin
+      - name: Inspect nested archive structure
+        run: |
+          python - <<'PY'
+          import tarfile,zipfile,gzip,io,os,json
+          p='package.bin';report={}
+          try:
+            with tarfile.open(p,'r:*') as t:
+              ms=t.getmembers();report['outer']='tar';report['members']=[{'name':m.name,'size':m.size,'file':m.isfile()} for m in ms[:100]]
+          except Exception as e:report['tar_error']=repr(e)
+          try:
+            with zipfile.ZipFile(p) as z:
+              report['outer_zip']='zip';report['zip_members']=[{'name':x.filename,'size':x.file_size} for x in z.infolist()[:100]]
+          except Exception as e:report['zip_error']=repr(e)
+          try:
+            with gzip.open(p,'rb') as g:
+              head=g.read(512);report['gzip_head_hex']=head[:128].hex();report['gzip_head_ascii']=head[:256].decode('utf-8','replace')
+          except Exception as e:report['gzip_error']=repr(e)
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
