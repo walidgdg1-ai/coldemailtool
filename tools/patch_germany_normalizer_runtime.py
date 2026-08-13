@@ -45,5 +45,19 @@ if old_rank not in s:
     raise SystemExit('market rank target not found; refusing unsafe patch')
 s=s.replace(old_rank,new_rank,1)
 
+# Analytics later reuses `tdf` as a narrow view. QA needs the full date/value/link columns,
+# so read a dedicated QA frame rather than relying on the shadowed variable.
+anchor="counts={'normalized_tenders':len(tdf),'award_groups':len(adf),'award_supplier_links':len(bdf),'unique_buyers':int(tdf.Buyer_ID.nunique()),'unique_suppliers':int(bdf.Supplier_ID.nunique()) if len(bdf) else 0}"
+replacement="""qdf=pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Historical_Tender_ID','Buyer_ID','Publication_Date','Deadline','Official_Estimated_Value','Award_Link_Status'])
+    counts={'normalized_tenders':len(qdf),'award_groups':len(adf),'award_supplier_links':len(bdf),'unique_buyers':int(qdf.Buyer_ID.nunique()),'unique_suppliers':int(bdf.Supplier_ID.nunique()) if len(bdf) else 0}"""
+if anchor not in s:
+    raise SystemExit('QA counts target not found; refusing unsafe patch')
+s=s.replace(anchor,replacement,1)
+s=s.replace("round(tdf.Publication_Date.notna().mean()*100,2)","round(qdf.Publication_Date.notna().mean()*100,2)")
+s=s.replace("round(tdf.Deadline.notna().mean()*100,2)","round(qdf.Deadline.notna().mean()*100,2)")
+s=s.replace("round(tdf.Official_Estimated_Value.notna().mean()*100,2)","round(qdf.Official_Estimated_Value.notna().mean()*100,2)")
+s=s.replace("round((tdf.Award_Link_Status=='LINKED').mean()*100,2)","round((qdf.Award_Link_Status=='LINKED').mean()*100,2)")
+s=s.replace("bool(tdf.Historical_Tender_ID.is_unique)","bool(qdf.Historical_Tender_ID.is_unique)")
+
 p.write_text(s,encoding='utf-8')
-print('Germany runtime patch applied: requested-publication-date + O(1) buyer lookup + empty-rank guard')
+print('Germany runtime patch applied: publication grain + buyer O(1) + empty-rank + QA frame isolation')
