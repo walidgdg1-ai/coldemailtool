@@ -1,0 +1,91 @@
+name: Probe TED bulk XML schema generations
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/ted-bulk-schema-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download representative official bulk packages
+        run: |
+          mkdir -p probe
+          gh release download tender-raw-ted-official-bulk-v1 --pattern 'ted-monthly-2023-08.package.gz' --pattern 'ted-monthly-2024-09.package.gz' --dir probe --clobber
+          ls -lh probe
+      - name: Inspect nested XML roots, namespaces and high-signal tags
+        run: |
+          python - <<'PY'
+          import tarfile,io,collections,json,re
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          def local(tag): return tag.rsplit('}',1)[-1]
+          def namespace(tag):
+              return tag[1:].split('}',1)[0] if tag.startswith('{') else ''
+          def iter_xml_payloads(pkg,limit=5000):
+              yielded=0
+              with tarfile.open(pkg,'r:*') as outer:
+                  for m in outer.getmembers():
+                      if not m.isfile(): continue
+                      name=m.name.lower();src=outer.extractfile(m)
+                      if src is None: continue
+                      if name.endswith('.xml'):
+                          yield m.name,src.read();yielded+=1
+                      elif name.endswith(('.tar.gz','.tgz','.tar')):
+                          data=src.read()
+                          with tarfile.open(fileobj=io.BytesIO(data),mode='r:*') as inner:
+                              for im in inner.getmembers():
+                                  if not im.isfile() or not im.name.lower().endswith('.xml'): continue
+                                  xf=inner.extractfile(im)
+                                  if xf is None: continue
+                                  yield m.name+'::'+im.name,xf.read();yielded+=1
+                                  if yielded>=limit:return
+                      if yielded>=limit:return
+          reports={}
+          signal={'FORM','NOTICE_DATA','CODED_DATA_SECTION','TRANSLATION_SECTION','ContractNotice','ContractAwardNotice','PriorInformationNotice','TED_EXPORT','OBJECT_CONTRACT','AWARD_CONTRACT','CONTRACTING_BODY','PROCEDURE','NOTICE','UBLExtensions','NoticeResult','TenderResult','LotResult','ContractFolderID','RequestedPublicationDate','IssueDate','NoticeTypeCode','CustomizationID','ProfileID','ID'}
+          for pkg in sorted(Path('probe').glob('*.package.gz')):
+              roots=collections.Counter();namespaces=collections.Counter();tags=collections.Counter();attrs=collections.Counter();schema_markers=collections.Counter();examples=[];parsed=errors=0
+              for name,payload in iter_xml_payloads(pkg):
+                  try:
+                      root=ET.fromstring(payload);parsed+=1
+                      roots[local(root.tag)]+=1;namespaces[namespace(root.tag)]+=1
+                      for k,v in root.attrib.items(): attrs[(local(k),str(v)[:120])]+=1
+                      seen_sig=[]
+                      for e in root.iter():
+                          ln=local(e.tag);tags[ln]+=1
+                          if ln in signal and len(seen_sig)<30: seen_sig.append(ln)
+                          if ln in ('CustomizationID','ProfileID','VERSION','VERSION_ID','FORM','TD_DOCUMENT_TYPE','NOTICE_TYPE'):
+                              txt=(e.text or '').strip()
+                              if txt:schema_markers[(ln,txt[:160])]+=1
+                      if len(examples)<8:
+                          examples.append({'member':name,'root':local(root.tag),'namespace':namespace(root.tag),'root_attrib':root.attrib,'signals':seen_sig})
+                  except Exception as e:
+                      errors+=1
+              reports[pkg.name]={
+                'sample_xml':parsed+errors,'parsed':parsed,'errors':errors,
+                'root_types':roots.most_common(30),'root_namespaces':namespaces.most_common(20),
+                'schema_markers':[{'key':list(k),'count':v} for k,v in schema_markers.most_common(50)],
+                'root_attributes':[{'key':list(k),'count':v} for k,v in attrs.most_common(50)],
+                'high_signal_tag_counts':{k:tags[k] for k in sorted(signal) if tags[k]},
+                'top_tags':tags.most_common(80),'examples':examples,
+              }
+          Path('probe/ted_bulk_schema_probe.json').write_text(json.dumps(reports,indent=2,ensure_ascii=False,default=str),encoding='utf-8')
+          print(json.dumps(reports,indent=2,ensure_ascii=False,default=str))
+          PY
+      - name: Persist probe
+        run: |
+          TAG='tender-ted-bulk-schema-probe-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'TED official bulk XML schema probe v1' --notes 'Representative root/namespace/tag inventory for persisted TED bulk packages.' --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" probe/ted_bulk_schema_probe.json --clobber
