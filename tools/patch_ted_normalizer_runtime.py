@@ -3,6 +3,45 @@ from pathlib import Path
 p=Path('tools/tender_normalize_ted_bulk.py')
 s=p.read_text(encoding='utf-8')
 
+# Canonicalization needs grouping over potentially millions of notice rows. Add a streaming
+# groupby and avoid one SQLite query per procurement key.
+if 'from itertools import groupby' not in s:
+    s=s.replace('from collections import defaultdict\n','from collections import defaultdict\nfrom itertools import groupby\n',1)
+
+old_tenders="""    # One canonical procurement per exact linkage key. Earliest primary notice defines publication date; richest fields are selected by length/value presence.
+    rows=c.execute('SELECT procurement_key,MIN(publication_date) FROM notices WHERE primary_notice=1 GROUP BY procurement_key').fetchall();tenders=[]
+    for pk,pub in rows:
+        ns=c.execute('SELECT '+','.join(ncols)+' FROM notices WHERE procurement_key=? AND primary_notice=1 ORDER BY publication_date',(pk,)).fetchall();ds=[dict(zip(ncols,r)) for r in ns]
+        def richest(k):
+            vals=[x.get(k) for x in ds if x.get(k) not in (None,'',UNKNOWN)];return max(vals,key=lambda z:len(str(z))) if vals else None
+        buyer_name=richest('buyer_name');country=richest('source_country') or UNKNOWN;buyer_nat=richest('buyer_national_id');buyer_id=stable('buy','TED|'+country+'|'+(buyer_nat or norm(buyer_name) or pk))
+        title=richest('title');description=richest('description');cpv=richest('cpv');cat,sub,lean=classify(title,description,cpv)
+        estimates=[x for x in ds if x.get('estimate') is not None];est=estimates[-1]['estimate'] if estimates else None;cur=estimates[-1]['currency'] if estimates else richest('currency')
+        aid_count=c.execute('SELECT COUNT(*) FROM awards WHERE procurement_key=?',(pk,)).fetchone()[0]
+        hid=stable('ted','TED|'+pk)
+        tenders.append({'Historical_Tender_ID':hid,'Source_System':'TED_OFFICIAL_BULK','Country':country,'Procurement_Key':pk,'Publication_Date':pub,'Deadline':richest('deadline'),'Buyer_ID':buyer_id,'Buyer_Name':buyer_name,'Title':title,'Description':description,'Main_CPV':cpv,'Procedure_Type':richest('procedure'),'Contract_Type':richest('contract_type'),'Official_Estimated_Value':est,'Currency':cur,'Category':cat,'Subcategory':sub,'Lean_Fit':lean,'Award_Link_Status':'LINKED' if aid_count else 'UNLINKED','Schema_Generation':richest('schema_generation'),'Reference_Number':richest('reference_number'),'Source_URL':richest('source_url')})
+"""
+new_tenders="""    # One canonical procurement per exact linkage key. Fetch primary notices once, ordered by
+    # procurement key, then group in Python. This replaces O(procurements) SQLite lookups.
+    award_count_by_pk=dict(c.execute('SELECT procurement_key,COUNT(*) FROM awards GROUP BY procurement_key').fetchall())
+    primary_rows=c.execute('SELECT '+','.join(ncols)+' FROM notices WHERE primary_notice=1 ORDER BY procurement_key,publication_date').fetchall()
+    pk_idx=ncols.index('procurement_key');tenders=[]
+    for pk,grp in groupby(primary_rows,key=lambda r:r[pk_idx]):
+        ds=[dict(zip(ncols,r)) for r in grp]
+        pubs=[x.get('publication_date') for x in ds if x.get('publication_date')]
+        pub=min(pubs) if pubs else None
+        def richest(k):
+            vals=[x.get(k) for x in ds if x.get(k) not in (None,'',UNKNOWN)];return max(vals,key=lambda z:len(str(z))) if vals else None
+        buyer_name=richest('buyer_name');country=richest('source_country') or UNKNOWN;buyer_nat=richest('buyer_national_id');buyer_id=stable('buy','TED|'+country+'|'+(buyer_nat or norm(buyer_name) or pk))
+        title=richest('title');description=richest('description');cpv=richest('cpv');cat,sub,lean=classify(title,description,cpv)
+        estimates=[x for x in ds if x.get('estimate') is not None];est=estimates[-1]['estimate'] if estimates else None;cur=estimates[-1]['currency'] if estimates else richest('currency')
+        aid_count=award_count_by_pk.get(pk,0)
+        hid=stable('ted','TED|'+pk)
+        tenders.append({'Historical_Tender_ID':hid,'Source_System':'TED_OFFICIAL_BULK','Country':country,'Procurement_Key':pk,'Publication_Date':pub,'Deadline':richest('deadline'),'Buyer_ID':buyer_id,'Buyer_Name':buyer_name,'Title':title,'Description':description,'Main_CPV':cpv,'Procedure_Type':richest('procedure'),'Contract_Type':richest('contract_type'),'Official_Estimated_Value':est,'Currency':cur,'Category':cat,'Subcategory':sub,'Lean_Fit':lean,'Award_Link_Status':'LINKED' if aid_count else 'UNLINKED','Schema_Generation':richest('schema_generation'),'Reference_Number':richest('reference_number'),'Source_URL':richest('source_url')})
+"""
+if old_tenders not in s:raise SystemExit('tender N+1 block not found')
+s=s.replace(old_tenders,new_tenders,1)
+
 # sqlite3 Cursor.execute() invalidates an active iteration on the same cursor. The canonical
 # award loop performs a nested supplier lookup, so materialize award rows before that lookup.
 old_awards="""    awards=[]
@@ -43,4 +82,4 @@ new2="""'award_tender_fk':all(x['Historical_Tender_ID'] in {t['Historical_Tender
 if old2 not in s:raise SystemExit('integrity block not found')
 s=s.replace(old2,new2,1)
 p.write_text(s,encoding='utf-8')
-print('TED dual-stack runtime patch applied: award cursor preservation + O(1) bridge integrity')
+print('TED dual-stack runtime patch applied: single-scan procurement grouping + award cursor preservation + O(1) bridge integrity')
