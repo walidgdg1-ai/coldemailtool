@@ -11,6 +11,26 @@ if old_date not in s:
     raise SystemExit('publication date target not found; refusing unsafe patch')
 s=s.replace(old_date,new_date,1)
 
+# eForms commonly serializes a DATE (not datetime) as e.g. 2026-07-08+02:00.
+# pandas treats this XML Schema lexical form inconsistently and previously coerced most
+# RequestedPublicationDate values to NaT, falsely marking >800k records out of window.
+old_parse="""def parse_date(v):
+    try:return pd.to_datetime(v,errors='coerce',utc=True)
+    except:return pd.NaT
+"""
+new_parse="""def parse_date(v):
+    try:
+        if v is None:return pd.NaT
+        sv=str(v).strip()
+        m=re.fullmatch(r'(\\d{4}-\\d{2}-\\d{2})(?:Z|[+-]\\d{2}:\\d{2})',sv)
+        if m: sv=m.group(1)
+        return pd.to_datetime(sv,errors='coerce',utc=True)
+    except:return pd.NaT
+"""
+if old_parse not in s:
+    raise SystemExit('parse_date target not found; refusing unsafe patch')
+s=s.replace(old_parse,new_parse,1)
+
 # Avoid O(number_of_awards × number_of_buyers) post-processing.
 old="""    buyers=defaultdict(lambda:{'tenders':0,'awards':0,'values':[],'bidders':[]})
     for r in pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Buyer_ID','Buyer_Name']).itertuples(index=False):buyers[(r.Buyer_ID,r.Buyer_Name)]['tenders']+=1
@@ -67,4 +87,4 @@ s=s.replace("pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Historical_Te
 s=s.replace("pd.read_csv(out/'awards.csv.gz',usecols=['Historical_Tender_ID','Award_ID','Award_Value','Bidder_Count'])", "pd.read_csv(out/'awards.csv.gz',usecols=['Historical_Tender_ID','Award_ID','Award_Value','Bidder_Count'],low_memory=False)")
 
 p.write_text(s,encoding='utf-8')
-print('Germany runtime patch applied: publication grain + buyer O(1) + empty-rank + QA frame isolation + robust pandas readback')
+print('Germany runtime patch applied: requested-publication date + XML date timezone normalization + buyer O(1) + empty-rank + QA frame isolation + robust pandas readback')
