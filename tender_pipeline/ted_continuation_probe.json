@@ -1,17 +1,47 @@
 {
   "request": {
     "query": "form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC",
+    "fields": [
+      "publication-number",
+      "publication-date"
+    ],
     "paginationMode": "ITERATION",
     "limit": 5,
     "checkpoint_page": 201,
     "checkpoint_archived_records": 50000
   },
-  "http_status": 400,
-  "token_accepted": false,
-  "response_keys": [],
-  "record_count": 0,
-  "first_record_summaries": [],
-  "next_token_present": false,
-  "next_token": null,
-  "error": "{\"message\":\"Validation error\",\"error\":[{\"objectName\":\"publicExpertSearchRequestV1\",\"field\":\"fields\",\"message\":\"must not be empty\"}]}"
+  "http_status": 200,
+  "token_accepted": true,
+  "response_keys": [
+    "notices",
+    "totalNoticeCount",
+    "iterationNextToken",
+    "timedOut"
+  ],
+  "record_count": 5,
+  "first_record_summaries": [
+    {
+      "publication-number": "702020-2025",
+      "publication-date": "2025-10-24+02:00"
+    },
+    {
+      "publication-number": "702202-2025",
+      "publication-date": "2025-10-24+02:00"
+    },
+    {
+      "publication-number": "702197-2025",
+      "publication-date": "2025-10-24+02:00"
+    },
+    {
+      "publication-number": "702188-2025",
+      "publication-date": "2025-10-24+02:00"
+    },
+    {
+      "publication-number": "702160-2025",
+      "publication-date": "2025-10-24+02:00"
+    }
+  ],
+  "next_token_present": true,
+  "next_token": "AAABn/iihCIAEhzfmRHcsw9fwvSbgAD2JrhrRVuw+RJPIMfpyyBP8Bh70sox+plxAfDi+tpIutqB5MzOCMSAYm+4KoySjzQDAS4sU4CdRgnn7dJusAKn",
+  "error": null
 }
