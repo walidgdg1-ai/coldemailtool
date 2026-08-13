@@ -53,7 +53,7 @@ jobs:
       - name: Harvest public BDA chronologically with durable checkpoints
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           COMPLETE=no
           if [ -f raw/belgium/belgium-public-checkpoint.json ]; then
             COMPLETE=$(python - <<'PY'
@@ -66,13 +66,23 @@ jobs:
           if [ "$COMPLETE" = yes ]; then
             echo 'BELGIUM_RAW_ALREADY_COMPLETE_SKIP_HARVEST'
           else
-            python tools/belgium_public_harvest.py \
-              --out raw/belgium \
-              --release-tag tender-raw-belgium-public-v1 \
-              --start 2023-08-01 \
-              --end 2026-07-31 \
-              --chunk-pages 100 \
-              --delay-ms 100
+            SUCCESS=no
+            for ATTEMPT in 1 2 3 4 5 6; do
+              echo "BELGIUM_HARVEST_PROCESS_ATTEMPT=$ATTEMPT"
+              if python tools/belgium_public_harvest.py \
+                --out raw/belgium \
+                --release-tag tender-raw-belgium-public-v1 \
+                --start 2023-08-01 \
+                --end 2026-07-31 \
+                --chunk-pages 100 \
+                --delay-ms 100; then
+                SUCCESS=yes
+                break
+              fi
+              echo "BELGIUM_HARVEST_PROCESS_RESTART=$ATTEMPT"
+              sleep $(( ATTEMPT * 15 ))
+            done
+            test "$SUCCESS" = yes
           fi
 
       - name: Read back complete raw census
