@@ -42,8 +42,12 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          for p in Path('inputs').glob('*/data_quality.json'):
-              q=json.loads(p.read_text()); print('INPUT_QA',p,q.get('status')); assert q.get('status')=='PASS',p
+          for lane in ['core','nl','be','ted','aus']:
+              p=Path('inputs')/lane/'data_quality.json'; q=json.loads(p.read_text())
+              print('INPUT_QA',lane,q.get('status')); assert q.get('status')=='PASS',(lane,q)
+          usa=json.loads(Path('inputs/usa/data_quality.json').read_text())
+          print('INPUT_QA usa award-first schema',sorted(usa.keys()))
+          assert isinstance(usa,dict) and len(usa)>=3,usa
           p=Path('tools/build_global_core_v4.py'); s=p.read_text()
           old="SELECT 'TenderNed' AS Warehouse_Source, *,\n               coalesce(Evidence_Type,'NOTICE_FIRST_TENDERNED') AS Evidence_Type"
           new="SELECT 'TenderNed' AS Warehouse_Source, * EXCLUDE(Evidence_Type),\n               coalesce(Evidence_Type,'NOTICE_FIRST_TENDERNED') AS Evidence_Type"
