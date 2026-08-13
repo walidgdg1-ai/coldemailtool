@@ -1,0 +1,159 @@
+name: Build validated global tender core
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-build-global-core.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-global-core-v1
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download validated country warehouses
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p inputs/{ireland,canada,uk,quebec,france}
+          for spec in \
+            'ireland:tender-normalized-ireland-v1' \
+            'canada:tender-normalized-canada-v1' \
+            'uk:tender-normalized-uk-v1' \
+            'quebec:tender-normalized-quebec-v1' \
+            'france:tender-normalized-france-v1'; do
+            country=${spec%%:*}; tag=${spec#*:}
+            for asset in historical_tenders.csv.gz awards.csv.gz buyers.csv.gz suppliers.csv.gz award_suppliers.csv.gz; do
+              gh release download "$tag" --pattern "$asset" --dir "inputs/$country" --clobber
+            done
+          done
+          find inputs -type f -printf '%p %s bytes\n' | sort
+
+      - name: Build canonical cross-country union and factual analytics
+        run: |
+          python - <<'PY'
+          import duckdb,json,hashlib
+          from pathlib import Path
+          from datetime import datetime,timezone
+          out=Path('global_core');out.mkdir(exist_ok=True)
+          con=duckdb.connect()
+          con.execute("SET preserve_insertion_order=false")
+          con.execute("SET threads=2")
+          con.execute("SET memory_limit='6GB'")
+          def src_expr():
+              return "CASE WHEN filename LIKE '%/ireland/%' THEN 'Ireland' WHEN filename LIKE '%/canada/%' THEN 'Canada federal' WHEN filename LIKE '%/uk/%' THEN 'United Kingdom' WHEN filename LIKE '%/quebec/%' THEN 'Quebec' WHEN filename LIKE '%/france/%' THEN 'France' ELSE 'UNKNOWN' END"
+          datasets={
+            'historical_tenders':'inputs/*/historical_tenders.csv.gz',
+            'awards':'inputs/*/awards.csv.gz',
+            'buyers':'inputs/*/buyers.csv.gz',
+            'suppliers':'inputs/*/suppliers.csv.gz',
+            'award_suppliers':'inputs/*/award_suppliers.csv.gz',
+          }
+          for name,glob in datasets.items():
+              src=src_expr()
+              con.execute(f"""COPY (
+                SELECT {src} AS Warehouse_Source,* EXCLUDE(filename)
+                FROM read_csv_auto('{glob}',header=true,all_varchar=true,union_by_name=true,filename=true,sample_size=-1)
+              ) TO '{out/name}.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
+              con.execute(f"""COPY (SELECT * FROM read_parquet('{out/name}.parquet')) TO '{out/name}.csv.gz' (HEADER,COMPRESSION GZIP)""")
+          # Country-level factual coverage. Raw values are never summed across currencies.
+          con.execute(f"""COPY (
+            WITH t AS (
+              SELECT Warehouse_Source,
+                     count(*) Tender_Count,
+                     count(distinct Buyer_ID) Tender_Buyer_Count,
+                     avg(CASE WHEN nullif(Official_Estimated_Value,'') IS NOT NULL THEN 1 ELSE 0 END)*100 Estimated_Value_Coverage_Pct,
+                     avg(CASE WHEN nullif(Deadline,'') IS NOT NULL THEN 1 ELSE 0 END)*100 Deadline_Coverage_Pct
+              FROM read_parquet('{out/'historical_tenders.parquet'}') GROUP BY 1
+            ), a AS (
+              SELECT Warehouse_Source,count(*) Award_Count,count(distinct Buyer_ID) Award_Buyer_Count,count(distinct Supplier_ID) Award_Supplier_Count,
+                     avg(CASE WHEN nullif(Award_Value,'') IS NOT NULL THEN 1 ELSE 0 END)*100 Award_Value_Coverage_Pct,
+                     avg(CASE WHEN nullif(Bidder_Count,'') IS NOT NULL AND Bidder_Count<>'UNKNOWN' THEN 1 ELSE 0 END)*100 Bidder_Count_Coverage_Pct
+              FROM read_parquet('{out/'awards.parquet'}') GROUP BY 1
+            )
+            SELECT t.*,coalesce(a.Award_Count,0) Award_Count,coalesce(a.Award_Buyer_Count,0) Award_Buyer_Count,coalesce(a.Award_Supplier_Count,0) Award_Supplier_Count,
+                   a.Award_Value_Coverage_Pct,a.Bidder_Count_Coverage_Pct
+            FROM t LEFT JOIN a USING(Warehouse_Source) ORDER BY Tender_Count DESC
+          ) TO '{out/'country_summary.csv'}' (HEADER)""")
+          # Market cohorts preserve source country and currency so monetary medians are not mixed.
+          con.execute(f"""COPY (
+            WITH t AS (
+              SELECT Warehouse_Source,coalesce(nullif(Category,''),'UNKNOWN') Category,coalesce(nullif(Subcategory,''),'UNKNOWN') Subcategory,
+                     coalesce(nullif(Currency,''),'UNKNOWN') Currency,
+                     count(*) Tender_Count,
+                     median(try_cast(nullif(Lean_Fit,'') AS DOUBLE)) Median_Lean_Fit,
+                     avg(CASE WHEN nullif(Official_Estimated_Value,'') IS NOT NULL THEN 1 ELSE 0 END)*100 Estimate_Coverage_Pct,
+                     median(try_cast(nullif(Official_Estimated_Value,'') AS DOUBLE)) Median_Estimated_Value
+              FROM read_parquet('{out/'historical_tenders.parquet'}') GROUP BY 1,2,3,4
+            ), a AS (
+              SELECT Warehouse_Source,Historical_Tender_ID,
+                     count(distinct Award_ID) Award_Count,
+                     median(try_cast(nullif(Award_Value,'') AS DOUBLE)) Median_Award_Value,
+                     median(try_cast(nullif(Bidder_Count,'') AS DOUBLE)) Median_Bidder_Count,
+                     avg(CASE WHEN nullif(Bidder_Count,'') IS NOT NULL AND Bidder_Count<>'UNKNOWN' THEN 1 ELSE 0 END)*100 Bidder_Coverage_Pct
+              FROM read_parquet('{out/'awards.parquet'}') GROUP BY 1,2
+            ), ta AS (
+              SELECT tt.Warehouse_Source,tt.Category,tt.Subcategory,tt.Currency,
+                     count(distinct aa.Historical_Tender_ID) Tenders_With_Awards,
+                     sum(coalesce(aa.Award_Count,0)) Award_Count,
+                     median(aa.Median_Award_Value) Median_Award_Value,
+                     median(aa.Median_Bidder_Count) Median_Bidder_Count,
+                     avg(aa.Bidder_Coverage_Pct) Bidder_Coverage_Pct
+              FROM read_parquet('{out/'historical_tenders.parquet'}') tt
+              LEFT JOIN a aa ON tt.Warehouse_Source=aa.Warehouse_Source AND tt.Historical_Tender_ID=aa.Historical_Tender_ID
+              GROUP BY 1,2,3,4
+            )
+            SELECT t.*,ta.Tenders_With_Awards,ta.Award_Count,ta.Median_Award_Value,ta.Median_Bidder_Count,ta.Bidder_Coverage_Pct,
+                   'DERIVED_FROM_VALIDATED_CANONICAL_ROWS' Derived_Status
+            FROM t LEFT JOIN ta USING(Warehouse_Source,Category,Subcategory,Currency)
+            ORDER BY Tender_Count DESC
+          ) TO '{out/'market_cohorts.csv'}' (HEADER)""")
+          counts={}
+          idcols={'historical_tenders':'Historical_Tender_ID','awards':'Award_ID','buyers':'Buyer_ID','suppliers':'Supplier_ID'}
+          for name in datasets:
+              counts[name]=con.execute(f"SELECT count(*) FROM read_parquet('{out/name}.parquet')").fetchone()[0]
+          integrity={}
+          for name,idc in idcols.items():
+              n,u=con.execute(f"SELECT count(*),count(distinct {idc}) FROM read_parquet('{out/name}.parquet')").fetchone();integrity[f'{name}_ids_unique']=(n==u)
+          # Buyers/suppliers may legitimately repeat by entity across source warehouses only if IDs collide; source-grain key must be unique.
+          for name,idc in [('buyers','Buyer_ID'),('suppliers','Supplier_ID')]:
+              n,u=con.execute(f"SELECT count(*),count(distinct Warehouse_Source||'|'||{idc}) FROM read_parquet('{out/name}.parquet')").fetchone();integrity[f'{name}_source_keys_unique']=(n==u)
+          expected_tenders=22081+19965+132484+164301+282684
+          quality={'version':'GLOBAL_CORE_V1','created_at':datetime.now(timezone.utc).isoformat(),'sources':['Ireland','Canada federal','United Kingdom','Quebec','France'],'expected_tenders_from_validated_registry':expected_tenders,'counts':counts,'integrity':integrity,'currency_rule':'No monetary aggregation across currencies; market cohorts retain Currency.','status':'PASS' if counts['historical_tenders']==expected_tenders and integrity['historical_tenders_ids_unique'] and integrity['awards_ids_unique'] else 'FAIL'}
+          (out/'data_quality.json').write_text(json.dumps(quality,indent=2),encoding='utf-8')
+          manifest={'version':'GLOBAL_CORE_V1','created_at':quality['created_at'],'files':{}}
+          for p in out.iterdir():
+              if p.is_file() and p.name!='run_manifest.json':
+                  h=hashlib.sha256(p.read_bytes()).hexdigest();manifest['files'][p.name]={'bytes':p.stat().st_size,'sha256':h}
+          (out/'run_manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+          print(json.dumps(quality,indent=2))
+          if quality['status']!='PASS':raise SystemExit(2)
+          PY
+
+      - name: Publish validated global core release
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-global-core-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — Global Core v1' \
+              --notes 'Validated five-market canonical union: Ireland, Canada federal, United Kingdom, Quebec and France. Includes CSV.gz and Parquet relational tables plus country and currency-preserving market cohort summaries. Germany/USA/TED are intentionally excluded until their own validation gates pass.' \
+              --target "$GITHUB_SHA"
+          fi
+          find global_core -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
