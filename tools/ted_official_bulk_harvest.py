@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse,hashlib,json,os,pathlib,shutil,subprocess,tarfile,time,urllib.error,urllib.request,zipfile,gzip
+import argparse,gzip,hashlib,io,json,pathlib,subprocess,tarfile,time,urllib.request,zipfile
 from datetime import datetime,timezone
 
 MONTHS=[(y,m) for y in range(2023,2027) for m in range(1,13) if (y,m)>=(2023,8) and (y,m)<=(2026,7)]
-# Current August 2026 OJ S daily editions published through 13 Aug 2026.
+# August 2026 daily editions needed beyond the last complete monthly package.
 DAILIES=[(2026,n) for n in range(147,156)]
-VERSION='TED_OFFICIAL_XML_BULK_V1'
+VERSION='TED_OFFICIAL_XML_BULK_V2'
+
 
 def sha256(p:pathlib.Path)->str:
     h=hashlib.sha256()
     with p.open('rb') as f:
         for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
     return h.hexdigest()
+
 
 def download(url:str,dst:pathlib.Path,retries=8):
     tmp=dst.with_suffix(dst.suffix+'.part')
@@ -32,28 +34,63 @@ def download(url:str,dst:pathlib.Path,retries=8):
             if a==retries-1:raise
             delay=min(90,3*(2**a));print('DOWNLOAD_RETRY',url,repr(e),'sleep',delay,flush=True);time.sleep(delay)
 
+
+def _inspect_tar(tf:tarfile.TarFile,prefix:str='',depth:int=0):
+    """Count XML recursively without extracting archives to disk.
+
+    TED monthly packages are tar.gz files whose regular-file members are daily
+    tar.gz packages; those daily packages contain the actual XML notices.
+    """
+    if depth>3:raise RuntimeError('TED archive nesting deeper than expected')
+    regular=[m for m in tf.getmembers() if m.isfile()]
+    xml_count=0;examples=[];nested_archives=0;nested_members=0
+    for m in regular:
+        lname=m.name.lower()
+        label=f'{prefix}{m.name}'
+        if lname.endswith('.xml'):
+            xml_count+=1
+            if len(examples)<8:examples.append(label)
+            continue
+        if lname.endswith(('.tar.gz','.tgz','.tar')):
+            src=tf.extractfile(m)
+            if src is None:continue
+            payload=src.read()
+            try:
+                with tarfile.open(fileobj=io.BytesIO(payload),mode='r:*') as inner:
+                    c,ex,nested,nmembers=_inspect_tar(inner,prefix=label+'::',depth=depth+1)
+                xml_count+=c;examples.extend(ex[:max(0,8-len(examples))]);nested_archives+=1+nested;nested_members+=nmembers
+            except tarfile.TarError as e:
+                raise RuntimeError(f'Nested TED archive unreadable: {label}: {e}')
+    return xml_count,examples,nested_archives,len(regular)+nested_members
+
+
 def inspect_archive(p:pathlib.Path):
-    xml=[];kind='unknown';member_count=0
     try:
         with tarfile.open(p,'r:*') as t:
-            names=[x.name for x in t.getmembers() if x.isfile()];member_count=len(names);xml=[n for n in names if n.lower().endswith('.xml')];kind='tar'
-            return kind,member_count,len(xml),xml[:5]
-    except Exception:pass
+            xml_count,examples,nested_archives,total_regular=_inspect_tar(t)
+            kind='tar-with-nested-archives' if nested_archives else 'tar'
+            return kind,total_regular,xml_count,examples,nested_archives
+    except tarfile.TarError:
+        pass
     try:
         with zipfile.ZipFile(p) as z:
-            names=[x.filename for x in z.infolist() if not x.is_dir()];member_count=len(names);xml=[n for n in names if n.lower().endswith('.xml')];kind='zip'
-            return kind,member_count,len(xml),xml[:5]
-    except Exception:pass
-    # Some endpoints advertise application/gzip; support a single gzip member too.
+            infos=[x for x in z.infolist() if not x.is_dir()]
+            xml=[x.filename for x in infos if x.filename.lower().endswith('.xml')]
+            return 'zip',len(infos),len(xml),xml[:8],0
+    except zipfile.BadZipFile:
+        pass
     try:
-        with gzip.open(p,'rb') as f:
-            head=f.read(256)
-        kind='gzip-single';return kind,1,1 if b'<?xml' in head or b'<TED' in head else 0,[]
-    except Exception:pass
+        with gzip.open(p,'rb') as f:head=f.read(512)
+        is_xml=b'<?xml' in head or b'<TED' in head or b'<ContractNotice' in head
+        return 'gzip-single',1,1 if is_xml else 0,[],0
+    except Exception:
+        pass
     raise RuntimeError(f'Unsupported archive format: {p}')
+
 
 def gh_upload(tag:str,*paths:pathlib.Path):
     for p in paths:subprocess.run(['gh','release','upload',tag,str(p),'--clobber'],check=True)
+
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--release-tag',required=True);ap.add_argument('--work',default='ted_bulk');ap.add_argument('--checkpoint');args=ap.parse_args()
@@ -61,7 +98,8 @@ def main():
     cp={'version':VERSION,'completed':{},'status':'IN_PROGRESS','created_at':datetime.now(timezone.utc).isoformat()}
     if args.checkpoint and pathlib.Path(args.checkpoint).exists():
         cp=json.load(open(args.checkpoint,encoding='utf-8'))
-        if cp.get('version')!=VERSION:raise RuntimeError('checkpoint version mismatch')
+        # V1 did not successfully commit a package, so only accept same-version checkpoints.
+        if cp.get('version')!=VERSION:raise RuntimeError(f'checkpoint version mismatch: {cp.get("version")} != {VERSION}')
     cpp=work/'ted-official-bulk-checkpoint.json'
     jobs=[]
     for y,m in MONTHS:
@@ -73,14 +111,14 @@ def main():
             print('BULK_SKIP',key,cp['completed'][key].get('xml_count'),flush=True);continue
         p=work/f'ted-{key}.package.gz'
         print('BULK_DOWNLOAD',key,url,flush=True);download(url,p)
-        kind,members,xml_count,examples=inspect_archive(p)
-        if xml_count<=0:raise RuntimeError(f'{key}: no XML members found')
-        manifest={'version':VERSION,'key':key,'package_type':package_type,'period':period,'source_url':url,'archive_kind':kind,'bytes':p.stat().st_size,'sha256':sha256(p),'member_count':members,'xml_count':xml_count,'example_xml_members':examples,'downloaded_at':datetime.now(timezone.utc).isoformat(),'status':'COMPLETE'}
+        kind,members,xml_count,examples,nested_archives=inspect_archive(p)
+        if xml_count<=0:raise RuntimeError(f'{key}: no XML members found after recursive archive inspection')
+        manifest={'version':VERSION,'key':key,'package_type':package_type,'period':period,'source_url':url,'archive_kind':kind,'bytes':p.stat().st_size,'sha256':sha256(p),'regular_member_count_recursive':members,'nested_archive_count':nested_archives,'xml_count':xml_count,'example_xml_members':examples,'downloaded_at':datetime.now(timezone.utc).isoformat(),'status':'COMPLETE'}
         mp=work/f'ted-{key}.manifest.json';mp.write_text(json.dumps(manifest,indent=2,ensure_ascii=False),encoding='utf-8')
         gh_upload(args.release_tag,p,mp)
-        cp.setdefault('completed',{})[key]={'xml_count':xml_count,'bytes':p.stat().st_size,'sha256':manifest['sha256'],'manifest':mp.name}
+        cp.setdefault('completed',{})[key]={'xml_count':xml_count,'bytes':p.stat().st_size,'sha256':manifest['sha256'],'manifest':mp.name,'nested_archive_count':nested_archives}
         cp['completed_packages']=len(cp['completed']);cp['completed_xml_sum']=sum(int(x['xml_count']) for x in cp['completed'].values());cp['last_completed']=key;cp['updated_at']=datetime.now(timezone.utc).isoformat();cpp.write_text(json.dumps(cp,indent=2),encoding='utf-8');gh_upload(args.release_tag,cpp)
-        print('BULK_COMMITTED',key,'xml',xml_count,'bytes',p.stat().st_size,'sum_xml',cp['completed_xml_sum'],flush=True)
+        print('BULK_COMMITTED',key,'xml',xml_count,'nested',nested_archives,'bytes',p.stat().st_size,'sum_xml',cp['completed_xml_sum'],flush=True)
         p.unlink(missing_ok=True);mp.unlink(missing_ok=True)
     cp['expected_packages']=len(jobs);cp['status']='COMPLETE' if len(cp['completed'])==len(jobs) else 'PARTIAL';cp['updated_at']=datetime.now(timezone.utc).isoformat();cpp.write_text(json.dumps(cp,indent=2),encoding='utf-8');summary=work/'ted-official-bulk-summary.json';summary.write_text(json.dumps(cp,indent=2),encoding='utf-8');gh_upload(args.release_tag,cpp,summary);print(json.dumps(cp,indent=2))
     if cp['status']!='COMPLETE':raise SystemExit(2)
