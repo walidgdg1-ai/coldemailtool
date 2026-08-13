@@ -1,0 +1,74 @@
+name: Build federated Global Core v3
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-build-global-core-v3.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-global-core-v3
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download validated inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p inputs/core_v2 inputs/germany inputs/usa
+          for a in historical_tenders.parquet awards.parquet award_suppliers.parquet; do
+            gh release download tender-normalized-global-core-v2 --pattern "$a" --dir inputs/core_v2 --clobber
+          done
+          for a in historical_tenders.csv.gz awards.csv.gz award_suppliers.csv.gz; do
+            gh release download tender-normalized-germany-v1 --pattern "$a" --dir inputs/germany --clobber
+          done
+          gh release download tender-normalized-usa-awards-v1 --pattern data_quality.json --dir inputs/usa --clobber
+          find inputs -type f -printf '%p %s bytes\n' | sort
+
+      - name: Build notice-first core and federated evidence registry
+        run: |
+          python tools/build_global_core_v3.py \
+            --core-v2 inputs/core_v2 \
+            --germany inputs/germany \
+            --usa-quality inputs/usa/data_quality.json \
+            --out global_core_v3
+
+      - name: Guard release asset sizes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          limit=1_900_000_000
+          for p in Path('global_core_v3').iterdir():
+              if p.is_file():
+                  print(p.name,p.stat().st_size)
+                  if p.stat().st_size>=limit: raise SystemExit(f'{p.name} exceeds safe release asset limit')
+          PY
+
+      - name: Publish Global Core v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-global-core-v3'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — Global Core v3' \
+              --notes 'Federated validated core. Materialized notice-first layer = collision-repaired Global Core v2 plus Germany eForms. USAspending remains a separately typed AWARD_FIRST_RECONSTRUCTED lane referenced through evidence_lanes.json rather than being miscounted as original opportunity notices.' \
+              --target tender-harvest-relay-20260812
+          fi
+          find global_core_v3 -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
