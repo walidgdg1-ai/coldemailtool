@@ -4,7 +4,9 @@ on:
     branches: [tender-harvest-relay-20260812]
     paths: ['.github/workflows/germany-normalizer-smoke.yml']
   workflow_dispatch:
-permissions: {contents: write}
+permissions:
+  contents: read
+  issues: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -29,16 +31,19 @@ jobs:
           rc=$?
           cat germany_smoke.log
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
-          mkdir -p tender_pipeline
-          tail -n 500 germany_smoke.log > tender_pipeline/germany_normalizer_smoke.log
+          tail -n 500 germany_smoke.log > germany_smoke_tail.log
           exit 0
-      - name: Push diagnostic log to isolated branch
+      - name: Publish temporary private diagnostic issue when parser fails
+        if: steps.smoke.outputs.exit_code != '0'
+        env: {GH_TOKEN: '${{ github.token }}'}
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -B tender-germany-diagnostic-20260813
-          git add tender_pipeline/germany_normalizer_smoke.log
-          git commit -m 'Record Germany normalizer smoke traceback' || true
-          git push --force origin HEAD:tender-germany-diagnostic-20260813
+          {
+            echo 'Temporary automated diagnostic. Safe to close after repair.'
+            echo
+            echo '```text'
+            cat germany_smoke_tail.log
+            echo '```'
+          } > issue_body.md
+          gh issue create --title "TEMP Germany normalizer traceback $GITHUB_RUN_ID" --body-file issue_body.md
       - name: Fail if parser failed
         run: test '${{ steps.smoke.outputs.exit_code }}' = '0'
