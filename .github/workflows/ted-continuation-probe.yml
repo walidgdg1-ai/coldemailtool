@@ -25,12 +25,13 @@ jobs:
           token='AAABn/GfyzkAD3oLY+XSGPBWxsOyLuQ/gzFON1r9yf6YLt4TzoCkbtMtvhW8bnnlKVyj8hUJ1T8qPTjbpDeVKlwpmDy7yaIOBFBgcylhnAEoSFFxAHpK'
           payload={
             'query':'form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC',
+            'fields':['publication-number','publication-date'],
             'paginationMode':'ITERATION',
             'limit':5,
             'iterationNextToken':token,
           }
           req=urllib.request.Request(url,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','Accept':'application/json'},method='POST')
-          out={'request':{'query':payload['query'],'paginationMode':'ITERATION','limit':5,'checkpoint_page':201,'checkpoint_archived_records':50000},'http_status':None,'token_accepted':False,'response_keys':[],'record_count':0,'first_record_summaries':[],'next_token_present':False,'next_token':None,'error':None}
+          out={'request':{'query':payload['query'],'fields':payload['fields'],'paginationMode':'ITERATION','limit':5,'checkpoint_page':201,'checkpoint_archived_records':50000},'http_status':None,'token_accepted':False,'response_keys':[],'record_count':0,'first_record_summaries':[],'next_token_present':False,'next_token':None,'error':None}
           try:
             with urllib.request.urlopen(req,timeout=60) as r:
               out['http_status']=r.status
