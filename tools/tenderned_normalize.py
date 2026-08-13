@@ -56,7 +56,6 @@ def main():
         for r in rs:
             d=dateonly(r.get('date'))
             if d and a.start<=d<a.end:releases.append(r)
-    # One procurement key only when official OCDS OCID exists. Otherwise notice grain.
     groups=defaultdict(list)
     for r in releases:
         pk=clean(r.get('ocid')) or ('tenderned-notice|'+str(r.get('id')))
@@ -68,7 +67,6 @@ def main():
         def rich_t(k):
             vals=[clean((r.get('tender') or {}).get(k)) for r in tender_rs];vals=[x for x in vals if x]
             return max(vals,key=len) if vals else None
-        # buyer information: prefer explicit release buyer, latest non-empty.
         br={}
         for r in rs:
             b=r.get('buyer') or {}
@@ -80,8 +78,7 @@ def main():
         if bid:buyers[bid]={'Buyer_ID':bid,'Buyer_Name':bname,'Country':'Netherlands'}
         title=rich_t('title');desc=rich_t('description');cpv=None;ptype=None;ctype=None;deadline=None;est=None;cur=None;src_url=None;notice_type=None;national_eu=None
         for r in tender_rs:
-            t=r.get('tender') or {}
-            cl=t.get('classification') or {}
+            t=r.get('tender') or {};cl=t.get('classification') or {}
             if clean(cl.get('id')):cpv=clean(cl.get('id'))
             if clean(t.get('procurementMethodDetails')):ptype=clean(t.get('procurementMethodDetails'))
             if clean(t.get('mainProcurementCategory')):ctype=clean(t.get('mainProcurementCategory'))
@@ -93,26 +90,23 @@ def main():
             if clean(t.get('nationalOrEuropean')):national_eu=clean(t.get('nationalOrEuropean'))
             for d in t.get('documents') or []:
                 if clean(d.get('url')) and (d.get('documentType') in ('tenderNotice','contractAwardNotice') or src_url is None):src_url=clean(d.get('url'))
-        cat,sub,lean=classify(title,desc,cpv);hid=stable('tn','TENDERNED|'+pk)
-        # awards and supplier parties are release-level but get linked to official OCID procurement.
-        award_count=0
+        cat,sub,lean=classify(title,desc,cpv);hid=stable('tn','TENDERNED|'+pk);award_count=0
         for r in rs:
             party_map={str(p.get('id')):p for p in r.get('parties') or [] if p.get('id') is not None}
             contracts_by_award={str(c.get('awardID')):c for c in r.get('contracts') or [] if c.get('awardID') is not None}
             for aw in r.get('awards') or []:
                 raw_aid=str(aw.get('id') or stable('raw',json.dumps(aw,sort_keys=True,ensure_ascii=False)))
-                aid=stable('awd','TENDERNED|'+raw_aid);lots={str(x) for x in aw.get('relatedLots') or []};bc=bidder_for_lots(r,lots)
+                aid=stable('awd','TENDERNED|'+pk+'|'+raw_aid);lots={str(x) for x in aw.get('relatedLots') or []};bc=bidder_for_lots(r,lots)
                 av=aw.get('value') or {};mv=aw.get('maximumValue') or {};aval=num(av.get('amount'));acur=clean(av.get('currency'));field='award.value.amount'
                 if aval is None and num(mv.get('amount')) is not None:aval=num(mv.get('amount'));acur=clean(mv.get('currency'));field='award.maximumValue.amount'
                 refs=aw.get('suppliers') or [];suppliers_for_award=[]
                 for ref in refs:
-                    p=party_map.get(str(ref.get('id'))) or ref
-                    raw_sid=p.get('id') if p.get('id') is not None else norm(p.get('name'))
+                    p=party_map.get(str(ref.get('id'))) or ref;raw_sid=p.get('id') if p.get('id') is not None else norm(p.get('name'))
                     if raw_sid in (None,''):continue
                     sid=stable('sup','TENDERNED|'+str(raw_sid));name=clean(p.get('name') or ref.get('name'));country=clean((p.get('address') or {}).get('countryName')) or UNKNOWN
                     suppliers_for_award.append((sid,name,country))
                 c=contracts_by_award.get(str(aw.get('id'))) or {};ad=dateonly(aw.get('date')) or dateonly(c.get('dateSigned'))
-                row={'Award_ID':aid,'Historical_Tender_ID':hid,'Buyer_ID':bid,'Buyer_Name':bname,'Supplier_ID':suppliers_for_award[0][0] if len(suppliers_for_award)==1 else None,'Supplier_Name':suppliers_for_award[0][1] if len(suppliers_for_award)==1 else None,'Supplier_Country':suppliers_for_award[0][2] if len(suppliers_for_award)==1 else None,'Award_Date':ad,'Award_Value':aval if aval is not None else UNKNOWN,'Currency':acur or cur or UNKNOWN,'Bidder_Count':bc if bc is not None else UNKNOWN,'Supplier_Count':len(suppliers_for_award) if suppliers_for_award else UNKNOWN,'Value_Field':field if aval is not None else UNKNOWN,'Source_Notice_ID':r.get('id'),'OCID':pk,'Evidence_Type':'NOTICE_FIRST_TENDERNED'}
+                row={'Award_ID':aid,'Historical_Tender_ID':hid,'Buyer_ID':bid,'Buyer_Name':bname,'Supplier_ID':suppliers_for_award[0][0] if len(suppliers_for_award)==1 else None,'Supplier_Name':suppliers_for_award[0][1] if len(suppliers_for_award)==1 else None,'Supplier_Country':suppliers_for_award[0][2] if len(suppliers_for_award)==1 else None,'Award_Date':ad,'Award_Value':aval if aval is not None else UNKNOWN,'Currency':acur or cur or UNKNOWN,'Bidder_Count':bc if bc is not None else UNKNOWN,'Supplier_Count':len(suppliers_for_award) if suppliers_for_award else UNKNOWN,'Value_Field':field if aval is not None else UNKNOWN,'Source_Notice_ID':r.get('id'),'OCID':pk,'Source_Award_ID':raw_aid,'Evidence_Type':'NOTICE_FIRST_TENDERNED'}
                 k=(r.get('date') or '',str(r.get('id') or ''));old=award_best.get(aid)
                 if old is None or k>old[0]:award_best[aid]=(k,row);bridge_by_award[aid]=[(sid,name,country,aval if len(suppliers_for_award)==1 else None) for sid,name,country in suppliers_for_award]
                 award_count+=1
@@ -122,8 +116,7 @@ def main():
     for arow in awards:
         aid=arow['Award_ID']
         for sid,name,country,alloc in bridge_by_award.get(aid,[]):
-            suppliers[sid]={'Supplier_ID':sid,'Supplier_Name':name,'Country':country}
-            bridges.append({'Award_ID':aid,'Supplier_ID':sid,'Supplier_Name':name,'Relationship':'WINNER','Award_Value_Allocated':alloc,'Supplier_Country':country,'SME_Status':UNKNOWN})
+            suppliers[sid]={'Supplier_ID':sid,'Supplier_Name':name,'Country':country};bridges.append({'Award_ID':aid,'Supplier_ID':sid,'Supplier_Name':name,'Relationship':'WINNER','Award_Value_Allocated':alloc,'Supplier_Country':country,'SME_Status':UNKNOWN})
     out=Path(a.out);out.mkdir(parents=True,exist_ok=True);gz(out/'historical_tenders.csv.gz',tenders);gz(out/'awards.csv.gz',awards);gz(out/'award_suppliers.csv.gz',bridges);gz(out/'buyers.csv.gz',list(buyers.values()));gz(out/'suppliers.csv.gz',list(suppliers.values()))
     tids={x['Historical_Tender_ID'] for x in tenders};aids={x['Award_ID'] for x in awards};sids=set(suppliers);sc={x['Award_ID']:x['Supplier_Count'] for x in awards}
     integrity={'tender_ids_unique':len(tenders)==len(tids),'award_ids_unique':len(awards)==len(aids),'bridge_keys_unique':len(bridges)==len({(x['Award_ID'],x['Supplier_ID']) for x in bridges}),'award_tender_fk':all(x['Historical_Tender_ID'] in tids for x in awards),'bridge_award_fk':all(x['Award_ID'] in aids for x in bridges),'bridge_supplier_fk':all(x['Supplier_ID'] in sids for x in bridges),'multi_supplier_values_not_allocated':all(x['Award_Value_Allocated'] is None for x in bridges if sc.get(x['Award_ID']) not in (1,'1'))}
