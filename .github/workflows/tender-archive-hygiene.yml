@@ -1,0 +1,86 @@
+name: Tender archive hygiene
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-archive-hygiene.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove accidental Quebec SQLite sidecars and repair manifest
+        run: |
+          set -euo pipefail
+          mkdir -p hygiene/quebec
+          gh release download tender-normalized-quebec-v1 --pattern 'run_manifest.json' --dir hygiene/quebec --clobber
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('hygiene/quebec/run_manifest.json')
+          m=json.load(open(p,encoding='utf-8'))
+          files=m.get('files') or {}
+          removed=[]
+          for k in list(files):
+              if k in ('work.sqlite-shm','work.sqlite-wal','work.sqlite'):
+                  removed.append(k); files.pop(k,None)
+          m['files']=files
+          m['hygiene']={
+            'temporary_sqlite_sidecars_removed': removed,
+            'canonical_rows_changed': False,
+            'reason': 'Runtime SQLite WAL/SHM sidecars are not canonical warehouse artifacts.'
+          }
+          p.write_text(json.dumps(m,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('manifest removed',removed)
+          PY
+          # Provider asset IDs verified from release readback.
+          gh api -X DELETE repos/walidgdg1-ai/coldemailtool/releases/assets/512291234 || true
+          gh api -X DELETE repos/walidgdg1-ai/coldemailtool/releases/assets/512291257 || true
+          gh release upload tender-normalized-quebec-v1 hygiene/quebec/run_manifest.json --clobber
+
+      - name: Repair France source-format wording and manifest checksum
+        run: |
+          set -euo pipefail
+          mkdir -p hygiene/france
+          gh release download tender-normalized-france-v1 --pattern 'data_quality.json' --pattern 'run_manifest.json' --dir hygiene/france --clobber
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          dqp=Path('hygiene/france/data_quality.json')
+          mp=Path('hygiene/france/run_manifest.json')
+          q=json.load(open(dqp,encoding='utf-8'))
+          q['source']='BOAMP official monthly UTF-8 semicolon CSV snapshots with embedded JSON payloads in rich fields'
+          notes=q.setdefault('notes',[])
+          marker='Source container is semicolon-delimited CSV; embedded BOAMP/eForms JSON is decoded from cells such as donnees/gestion.'
+          if marker not in notes: notes.append(marker)
+          dqp.write_text(json.dumps(q,ensure_ascii=False,indent=2),encoding='utf-8')
+          m=json.load(open(mp,encoding='utf-8'))
+          files=m.setdefault('files',{})
+          if 'data_quality.json' in files:
+              b=dqp.read_bytes()
+              files['data_quality.json']['bytes']=len(b)
+              files['data_quality.json']['sha256']=hashlib.sha256(b).hexdigest()
+          m['hygiene']={
+            'source_format_metadata_repaired': True,
+            'canonical_rows_changed': False,
+            'old_wording': 'monthly NDJSON snapshots',
+            'actual_container': 'UTF-8 semicolon CSV + embedded JSON'
+          }
+          mp.write_text(json.dumps(m,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'france_source':q['source'],'data_quality_sha256':files.get('data_quality.json',{}).get('sha256')},indent=2))
+          PY
+          gh release upload tender-normalized-france-v1 hygiene/france/data_quality.json hygiene/france/run_manifest.json --clobber
+
+      - name: Read back cleaned releases
+        run: |
+          gh release view tender-normalized-quebec-v1 --json tagName,assets
+          gh release view tender-normalized-france-v1 --json tagName,assets
