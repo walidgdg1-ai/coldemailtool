@@ -1,0 +1,49 @@
+name: Belgium monthly BDA smoke wrapper
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-monthly-smoke-wrapper.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install public browser dependency
+        run: |
+          python -m pip install --disable-pip-version-check -q playwright
+          python -m playwright install --with-deps chromium >/dev/null
+      - name: Harvest August 2023 through async wrapper
+        run: |
+          python - <<'PY'
+          import asyncio, json
+          from types import SimpleNamespace
+          from tools.belgium_public_month_harvest import main
+          args=SimpleNamespace(month='2023-08',out='raw/belgium-month-smoke-fixed',delay_ms=100,retries=5)
+          asyncio.run(main(args))
+          q=json.load(open('raw/belgium-month-smoke-fixed/belgium-bda-2023-08.manifest.json'))
+          print(json.dumps(q,indent=2))
+          assert q['status']=='PASS',q
+          assert q['publicationDateFrom']=='2023-08-01',q
+          assert q['publicationDateTo_exclusive']=='2023-09-01',q
+          assert q['out_of_window_rows']==0,q
+          assert q['rows']>0 and q['pages']>0,q
+          PY
+      - name: Upload smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: belgium-month-smoke-2023-08
+          path: raw/belgium-month-smoke-fixed/*
+          if-no-files-found: error
+          retention-days: 7
