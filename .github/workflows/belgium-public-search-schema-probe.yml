@@ -1,61 +1,55 @@
-name: Validate Belgium public procurement search schema
+name: Smoke Belgium monthly public BDA harvest
 
 on:
   push:
     branches: [tender-harvest-relay-20260812]
-    paths: ['.github/workflows/belgium-public-search-schema-probe.yml']
+    paths:
+      - '.github/workflows/belgium-public-search-schema-probe.yml'
+      - 'tools/belgium_public_month_harvest.py'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
-  probe:
+  smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - name: Install anonymous browser
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Probe public date-picker year navigation
+      - name: Harvest August 2023 through BOSA public month filter
+        run: |
+          python tools/belgium_public_month_harvest.py --month 2023-08 --out raw/belgium-month-smoke
+      - name: Validate smoke manifest
         run: |
           python - <<'PY'
-          import asyncio
-          from playwright.async_api import async_playwright
-          API='/api/sea/search/publications'
-          async def main():
-            async with async_playwright() as p:
-              browser=await p.chromium.launch(headless=True)
-              page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1400})
-              async with page.expect_response(lambda r: API in r.url.lower(),timeout=90000) as first_info:
-                await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
-              first=await first_info.value
-              assert first.status==200,first.status
-              await page.wait_for_timeout(1000)
-              await page.locator('input').nth(6).click()
-              dialog=page.locator('[role="dialog"]').last
-              await dialog.wait_for(state='visible',timeout=10000)
-              await page.wait_for_timeout(500)
-              buttons=dialog.locator('button')
-              texts=await buttons.all_inner_texts()
-              print('DATE_VIEW_BUTTONS',texts)
-              assert len(texts)>5 and texts[4].strip()=='2026',texts
-              await buttons.nth(4).click()
-              await page.wait_for_timeout(500)
-              year_texts=await dialog.locator('button').all_inner_texts()
-              print('YEAR_VIEW_BUTTONS',year_texts)
-              years=[(i,t.strip()) for i,t in enumerate(year_texts) if t.strip().isdigit() and len(t.strip())==4]
-              print('YEAR_CHOICES',years)
-              candidates=[x for x in years if x[1]=='2023']
-              assert candidates,years
-              await dialog.locator('button').nth(candidates[0][0]).click()
-              await page.wait_for_timeout(500)
-              after=await dialog.locator('button').all_inner_texts()
-              print('AFTER_2023_BUTTONS',after)
-              print('DIALOG_TEXT_AFTER_2023',repr((await dialog.inner_text())[:4000]))
-              await browser.close()
-          asyncio.run(main())
+          import json
+          q=json.load(open('raw/belgium-month-smoke/belgium-bda-2023-08.manifest.json'))
+          print(json.dumps(q,indent=2))
+          assert q['status']=='PASS',q
+          assert q['publicationDateFrom']=='2023-08-01',q
+          assert q['publicationDateTo_exclusive']=='2023-09-01',q
+          assert q['out_of_window_rows']==0,q
+          assert q['rows']>0 and q['pages']>0,q
+          print('BELGIUM_MONTH_SMOKE_PASS',q['pages'],q['rows'],q['observed_min_date'],q['observed_max_date'])
           PY
+      - name: Persist smoke evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          TAG='tender-belgium-month-shard-smoke-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Belgium BDA monthly shard smoke v1' --notes 'Anonymous public BOSA UI month-filter smoke for August 2023. No auth state persisted.' --target tender-harvest-relay-20260812
+          fi
+          find raw/belgium-month-smoke -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
