@@ -1,0 +1,93 @@
+name: Normalize France BOAMP public procurement
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-normalize-france.yml'
+      - 'tools/tender_normalize_france.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-normalize-france-v1
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q pandas
+
+      - name: Download official BOAMP 36-month raw archive from private release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p raw/france
+          gh release download tender-raw-france-v1 --pattern 'boamp_*.csv' --dir raw/france --clobber
+          echo "assets=$(find raw/france -type f -name 'boamp_*.csv' | wc -l)"
+          du -sh raw/france
+          test "$(find raw/france -type f -name 'boamp_*.csv' | wc -l)" -ge 30
+
+      - name: Normalize to canonical relational warehouse
+        run: |
+          python tools/tender_normalize_france.py \
+            --raw-dir raw/france \
+            --out normalized/france \
+            --start 2023-08-01 \
+            --end 2026-07-31
+
+      - name: Validate canonical integrity
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+
+          q=json.load(open('normalized/france/data_quality.json',encoding='utf-8'))
+          print(json.dumps(q,indent=2,ensure_ascii=False))
+          assert q['normalized_tenders'] > 10000, q
+          assert q['award_groups'] > 5000, q
+          assert q['unique_buyers'] > 500, q
+          assert q['parse_errors'] / max(q['raw_lines'],1) < 0.01, q
+          assert all(q['integrity'].values()), q['integrity']
+
+          t=pd.read_csv('normalized/france/historical_tenders.csv.gz')
+          a=pd.read_csv('normalized/france/awards.csv.gz')
+          b=pd.read_csv('normalized/france/award_suppliers.csv.gz')
+          assert t['Historical_Tender_ID'].is_unique
+          assert a['Award_ID'].is_unique
+          assert not t['Historical_Tender_ID'].isna().any()
+          assert not a['Award_ID'].isna().any()
+          if len(b):
+            multi=set(a.loc[a['Supplier_Count'].fillna(0)>1,'Award_ID'])
+            assert b.loc[b['Award_ID'].isin(multi),'Award_Value_Allocated'].isna().all()
+          print('FRANCE_CANONICAL_VALIDATION_PASS')
+          PY
+
+      - name: Persist normalized France intelligence as private GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-france-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Normalized — France BOAMP v1' \
+              --notes 'Canonical relational BOAMP normalization for the 2023-08-01 through 2026-07-31 intelligence window. Conservative tender↔award linkage; no inferred bidder counts; multi-supplier totals never duplicated.' \
+              --target "$GITHUB_SHA"
+          fi
+          find normalized/france -type f -print0 | while IFS= read -r -d '' f; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+          gh release view "$TAG" --json tagName,url,assets
