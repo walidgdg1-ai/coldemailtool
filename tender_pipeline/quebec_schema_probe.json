@@ -1,0 +1,4147 @@
+{
+  "file": "mensuel_20240101_20240131.json",
+  "bytes": 38002113,
+  "top_type": "dict",
+  "top_keys": [
+    "uri",
+    "version",
+    "extensions",
+    "publishedDate",
+    "publisher",
+    "license",
+    "publicationPolicy",
+    "releases"
+  ],
+  "list_lengths": {
+    "releases": 10138,
+    "extensions": 1
+  },
+  "selected_record_container": "releases",
+  "record_count": 10138,
+  "record_top_keys": [
+    [
+      "ocid",
+      5000
+    ],
+    [
+      "id",
+      5000
+    ],
+    [
+      "date",
+      5000
+    ],
+    [
+      "language",
+      5000
+    ],
+    [
+      "tag",
+      5000
+    ],
+    [
+      "initiationType",
+      5000
+    ],
+    [
+      "parties",
+      5000
+    ],
+    [
+      "buyer",
+      5000
+    ],
+    [
+      "tender",
+      4970
+    ],
+    [
+      "awards",
+      4930
+    ],
+    [
+      "contracts",
+      3110
+    ],
+    [
+      "bids",
+      2316
+    ]
+  ],
+  "field_types": {
+    "ocid": [
+      [
+        "str",
+        5000
+      ]
+    ],
+    "id": [
+      [
+        "str",
+        5000
+      ]
+    ],
+    "date": [
+      [
+        "str",
+        5000
+      ]
+    ],
+    "language": [
+      [
+        "str",
+        5000
+      ]
+    ],
+    "tag": [
+      [
+        "list",
+        5000
+      ]
+    ],
+    "initiationType": [
+      [
+        "str",
+        5000
+      ]
+    ],
+    "parties": [
+      [
+        "list",
+        5000
+      ]
+    ],
+    "buyer": [
+      [
+        "dict",
+        5000
+      ]
+    ],
+    "tender": [
+      [
+        "dict",
+        4970
+      ]
+    ],
+    "bids": [
+      [
+        "list",
+        2316
+      ]
+    ],
+    "awards": [
+      [
+        "list",
+        4930
+      ]
+    ],
+    "contracts": [
+      [
+        "list",
+        3110
+      ]
+    ]
+  },
+  "signal_fields": [
+    [
+      "date",
+      5000
+    ],
+    [
+      "awards",
+      4930
+    ],
+    [
+      "contracts",
+      3110
+    ]
+  ],
+  "nested_paths": [
+    [
+      "0.value.amount",
+      8422
+    ],
+    [
+      "0.value.currency",
+      8422
+    ],
+    [
+      "suppliers.0.id",
+      5361
+    ],
+    [
+      "suppliers.0.name",
+      5361
+    ],
+    [
+      "ocid",
+      5000
+    ],
+    [
+      "id",
+      5000
+    ],
+    [
+      "date",
+      5000
+    ],
+    [
+      "language",
+      5000
+    ],
+    [
+      "tag",
+      5000
+    ],
+    [
+      "tag.0",
+      5000
+    ],
+    [
+      "initiationType",
+      5000
+    ],
+    [
+      "parties",
+      5000
+    ],
+    [
+      "parties.0",
+      5000
+    ],
+    [
+      "parties.0.name",
+      5000
+    ],
+    [
+      "parties.0.id",
+      5000
+    ],
+    [
+      "parties.0.address",
+      5000
+    ],
+    [
+      "0.address.streetAddress",
+      5000
+    ],
+    [
+      "0.address.locality",
+      5000
+    ],
+    [
+      "0.address.region",
+      5000
+    ],
+    [
+      "0.address.countryName",
+      5000
+    ],
+    [
+      "0.address.postalCode",
+      5000
+    ],
+    [
+      "parties.0.roles",
+      5000
+    ],
+    [
+      "0.roles.0",
+      5000
+    ],
+    [
+      "parties.0.details",
+      5000
+    ],
+    [
+      "0.details.Municipal",
+      5000
+    ],
+    [
+      "buyer",
+      5000
+    ],
+    [
+      "buyer.name",
+      5000
+    ],
+    [
+      "buyer.id",
+      5000
+    ],
+    [
+      "parties.1",
+      4970
+    ],
+    [
+      "parties.1.name",
+      4970
+    ],
+    [
+      "parties.1.id",
+      4970
+    ],
+    [
+      "parties.1.roles",
+      4970
+    ],
+    [
+      "1.roles.0",
+      4970
+    ],
+    [
+      "tender",
+      4970
+    ],
+    [
+      "tender.id",
+      4970
+    ],
+    [
+      "tender.title",
+      4970
+    ],
+    [
+      "tender.status",
+      4970
+    ],
+    [
+      "tender.procuringEntity",
+      4970
+    ],
+    [
+      "tender.procuringEntity.name",
+      4970
+    ],
+    [
+      "tender.procuringEntity.id",
+      4970
+    ],
+    [
+      "tender.procurementMethod",
+      4970
+    ],
+    [
+      "tender.procurementMethodDetails",
+      4970
+    ],
+    [
+      "tender.tenderPeriod",
+      4970
+    ],
+    [
+      "tender.tenderPeriod.startDate",
+      4970
+    ],
+    [
+      "tender.numberOfTenderers",
+      4970
+    ],
+    [
+      "tender.tenderers",
+      4970
+    ],
+    [
+      "tender.tenderers.0",
+      4970
+    ],
+    [
+      "tenderers.0.id",
+      4970
+    ],
+    [
+      "tenderers.0.name",
+      4970
+    ],
+    [
+      "tender.documents",
+      4970
+    ],
+    [
+      "tender.documents.0",
+      4970
+    ],
+    [
+      "documents.0.id",
+      4970
+    ],
+    [
+      "documents.0.url",
+      4970
+    ],
+    [
+      "parties.1.address",
+      4969
+    ],
+    [
+      "1.address.countryName",
+      4969
+    ],
+    [
+      "1.address.region",
+      4930
+    ],
+    [
+      "awards",
+      4930
+    ],
+    [
+      "awards.0",
+      4930
+    ],
+    [
+      "awards.0.id",
+      4930
+    ],
+    [
+      "awards.0.status",
+      4930
+    ],
+    [
+      "awards.0.value",
+      4930
+    ],
+    [
+      "awards.0.suppliers",
+      4930
+    ],
+    [
+      "0.suppliers.0",
+      4930
+    ],
+    [
+      "awards.0.date",
+      4929
+    ],
+    [
+      "tender.additionalProcurementCategories",
+      4898
+    ],
+    [
+      "tender.additionalProcurementCategories.0",
+      4898
+    ],
+    [
+      "tender.mainProcurementCategory",
+      4844
+    ],
+    [
+      "1.address.streetAddress",
+      4786
+    ],
+    [
+      "1.address.locality",
+      4782
+    ],
+    [
+      "tender.deliveryarea",
+      4777
+    ],
+    [
+      "tender.items",
+      4717
+    ],
+    [
+      "tender.items.0",
+      4717
+    ],
+    [
+      "items.0.id",
+      4717
+    ],
+    [
+      "items.0.description",
+      4717
+    ],
+    [
+      "items.0.classification",
+      4717
+    ],
+    [
+      "0.classification.scheme",
+      4717
+    ],
+    [
+      "0.classification.id",
+      4717
+    ],
+    [
+      "0.classification.description",
+      4717
+    ],
+    [
+      "items.0.additionalClassifications",
+      4709
+    ],
+    [
+      "0.additionalClassifications.0",
+      4709
+    ],
+    [
+      "additionalClassifications.0.scheme",
+      4709
+    ],
+    [
+      "additionalClassifications.0.id",
+      4709
+    ],
+    [
+      "additionalClassifications.0.description",
+      4709
+    ],
+    [
+      "1.address.postalCode",
+      4565
+    ],
+    [
+      "parties.1.details",
+      4494
+    ],
+    [
+      "1.details.NEQ",
+      4494
+    ],
+    [
+      "contracts",
+      3110
+    ],
+    [
+      "contracts.0",
+      3110
+    ],
+    [
+      "contracts.0.id",
+      3110
+    ],
+    [
+      "contracts.0.awardID",
+      3110
+    ],
+    [
+      "contracts.0.status",
+      3110
+    ],
+    [
+      "contracts.0.period",
+      3110
+    ],
+    [
+      "0.period.endDate",
+      3110
+    ],
+    [
+      "contracts.0.value",
+      3110
+    ],
+    [
+      "contracts.0.dateSigned",
+      3109
+    ],
+    [
+      "bids",
+      2316
+    ],
+    [
+      "bids.0",
+      2316
+    ],
+    [
+      "bids.0.id",
+      2316
+    ],
+    [
+      "bids.0.value",
+      2316
+    ],
+    [
+      "bids.0.valueUnit",
+      2316
+    ],
+    [
+      "tender.tenderPeriod.endDate",
+      2053
+    ],
+    [
+      "tender.tenderPeriod.durationInDays",
+      2050
+    ],
+    [
+      "parties.2",
+      1994
+    ],
+    [
+      "parties.2.name",
+      1994
+    ],
+    [
+      "parties.2.id",
+      1994
+    ],
+    [
+      "parties.2.address",
+      1994
+    ],
+    [
+      "2.address.region",
+      1994
+    ],
+    [
+      "2.address.countryName",
+      1994
+    ],
+    [
+      "parties.2.roles",
+      1994
+    ],
+    [
+      "2.roles.0",
+      1994
+    ],
+    [
+      "tender.tenderers.1",
+      1994
+    ],
+    [
+      "tenderers.1.id",
+      1994
+    ],
+    [
+      "tenderers.1.name",
+      1994
+    ],
+    [
+      "parties.2.details",
+      1954
+    ],
+    [
+      "2.details.NEQ",
+      1954
+    ],
+    [
+      "2.address.locality",
+      1942
+    ],
+    [
+      "2.address.streetAddress",
+      1941
+    ],
+    [
+      "2.address.postalCode",
+      1941
+    ],
+    [
+      "bids.1",
+      1773
+    ],
+    [
+      "bids.1.id",
+      1773
+    ],
+    [
+      "bids.1.value",
+      1773
+    ],
+    [
+      "bids.1.valueUnit",
+      1773
+    ],
+    [
+      "parties.3",
+      1418
+    ],
+    [
+      "parties.3.name",
+      1418
+    ],
+    [
+      "parties.3.id",
+      1418
+    ],
+    [
+      "parties.3.address",
+      1418
+    ],
+    [
+      "3.address.region",
+      1418
+    ],
+    [
+      "3.address.countryName",
+      1418
+    ],
+    [
+      "parties.3.roles",
+      1418
+    ],
+    [
+      "3.roles.0",
+      1418
+    ],
+    [
+      "tender.tenderers.2",
+      1418
+    ],
+    [
+      "tenderers.2.id",
+      1418
+    ],
+    [
+      "tenderers.2.name",
+      1418
+    ],
+    [
+      "3.address.streetAddress",
+      1394
+    ],
+    [
+      "3.address.locality",
+      1394
+    ],
+    [
+      "3.address.postalCode",
+      1393
+    ],
+    [
+      "parties.3.details",
+      1393
+    ],
+    [
+      "3.details.NEQ",
+      1393
+    ],
+    [
+      "bids.0.conform",
+      1307
+    ],
+    [
+      "bids.2",
+      1294
+    ],
+    [
+      "bids.2.id",
+      1294
+    ],
+    [
+      "bids.2.value",
+      1294
+    ],
+    [
+      "bids.2.valueUnit",
+      1294
+    ],
+    [
+      "bids.1.conform",
+      1075
+    ],
+    [
+      "parties.4",
+      944
+    ],
+    [
+      "parties.4.name",
+      944
+    ],
+    [
+      "parties.4.id",
+      944
+    ],
+    [
+      "parties.4.address",
+      944
+    ],
+    [
+      "4.address.region",
+      944
+    ],
+    [
+      "4.address.countryName",
+      944
+    ],
+    [
+      "parties.4.roles",
+      944
+    ],
+    [
+      "4.roles.0",
+      944
+    ],
+    [
+      "tender.tenderers.3",
+      944
+    ],
+    [
+      "tenderers.3.id",
+      944
+    ],
+    [
+      "tenderers.3.name",
+      944
+    ],
+    [
+      "4.address.streetAddress",
+      931
+    ],
+    [
+      "4.address.locality",
+      931
+    ],
+    [
+      "4.address.postalCode",
+      931
+    ],
+    [
+      "parties.4.details",
+      929
+    ],
+    [
+      "4.details.NEQ",
+      929
+    ],
+    [
+      "bids.3",
+      895
+    ],
+    [
+      "bids.3.id",
+      895
+    ],
+    [
+      "bids.3.value",
+      895
+    ],
+    [
+      "bids.3.valueUnit",
+      895
+    ],
+    [
+      "bids.2.conform",
+      793
+    ],
+    [
+      "bids.4",
+      644
+    ],
+    [
+      "bids.4.id",
+      644
+    ],
+    [
+      "bids.4.value",
+      644
+    ],
+    [
+      "bids.4.valueUnit",
+      644
+    ],
+    [
+      "parties.5",
+      628
+    ],
+    [
+      "parties.5.name",
+      628
+    ],
+    [
+      "parties.5.id",
+      628
+    ],
+    [
+      "parties.5.address",
+      628
+    ],
+    [
+      "5.address.region",
+      628
+    ],
+    [
+      "5.address.countryName",
+      628
+    ],
+    [
+      "parties.5.roles",
+      628
+    ],
+    [
+      "5.roles.0",
+      628
+    ],
+    [
+      "tender.tenderers.4",
+      628
+    ],
+    [
+      "tenderers.4.id",
+      628
+    ],
+    [
+      "tenderers.4.name",
+      628
+    ],
+    [
+      "5.address.streetAddress",
+      623
+    ],
+    [
+      "5.address.locality",
+      623
+    ],
+    [
+      "5.address.postalCode",
+      623
+    ],
+    [
+      "parties.5.details",
+      617
+    ],
+    [
+      "5.details.NEQ",
+      617
+    ],
+    [
+      "bids.3.conform",
+      550
+    ],
+    [
+      "bids.5",
+      430
+    ],
+    [
+      "bids.5.id",
+      430
+    ],
+    [
+      "bids.5.value",
+      430
+    ],
+    [
+      "bids.5.valueUnit",
+      430
+    ],
+    [
+      "bids.0.admissible",
+      414
+    ],
+    [
+      "bids.4.conform",
+      399
+    ],
+    [
+      "contracts.0.implementation",
+      397
+    ],
+    [
+      "0.implementation.transactions",
+      397
+    ],
+    [
+      "implementation.transactions.0",
+      397
+    ],
+    [
+      "transactions.0.id",
+      397
+    ],
+    [
+      "transactions.0.source",
+      397
+    ],
+    [
+      "transactions.0.date",
+      397
+    ],
+    [
+      "transactions.0.value",
+      382
+    ],
+    [
+      "parties.6",
+      375
+    ],
+    [
+      "parties.6.name",
+      375
+    ],
+    [
+      "parties.6.id",
+      375
+    ],
+    [
+      "parties.6.address",
+      375
+    ],
+    [
+      "6.address.region",
+      375
+    ],
+    [
+      "6.address.countryName",
+      375
+    ],
+    [
+      "parties.6.roles",
+      375
+    ],
+    [
+      "6.roles.0",
+      375
+    ],
+    [
+      "tender.tenderers.5",
+      375
+    ],
+    [
+      "tenderers.5.id",
+      375
+    ],
+    [
+      "tenderers.5.name",
+      375
+    ],
+    [
+      "6.address.locality",
+      372
+    ],
+    [
+      "6.address.streetAddress",
+      371
+    ],
+    [
+      "6.address.postalCode",
+      371
+    ],
+    [
+      "parties.6.details",
+      367
+    ],
+    [
+      "6.details.NEQ",
+      367
+    ],
+    [
+      "bids.1.admissible",
+      350
+    ],
+    [
+      "bids.6",
+      319
+    ],
+    [
+      "bids.6.id",
+      319
+    ],
+    [
+      "bids.6.value",
+      319
+    ],
+    [
+      "bids.6.valueUnit",
+      319
+    ],
+    [
+      "0.value.totalamount",
+      272
+    ],
+    [
+      "bids.2.admissible",
+      261
+    ],
+    [
+      "bids.5.conform",
+      257
+    ],
+    [
+      "parties.7",
+      246
+    ],
+    [
+      "parties.7.name",
+      246
+    ],
+    [
+      "parties.7.id",
+      246
+    ],
+    [
+      "parties.7.address",
+      246
+    ],
+    [
+      "7.address.region",
+      246
+    ],
+    [
+      "7.address.countryName",
+      246
+    ],
+    [
+      "parties.7.roles",
+      246
+    ],
+    [
+      "7.roles.0",
+      246
+    ],
+    [
+      "tender.tenderers.6",
+      246
+    ],
+    [
+      "tenderers.6.id",
+      246
+    ],
+    [
+      "tenderers.6.name",
+      246
+    ],
+    [
+      "7.address.streetAddress",
+      243
+    ],
+    [
+      "7.address.locality",
+      243
+    ],
+    [
+      "7.address.postalCode",
+      243
+    ],
+    [
+      "parties.7.details",
+      243
+    ],
+    [
+      "7.details.NEQ",
+      243
+    ],
+    [
+      "bids.7",
+      232
+    ],
+    [
+      "bids.7.id",
+      232
+    ],
+    [
+      "bids.7.value",
+      232
+    ],
+    [
+      "bids.7.valueUnit",
+      232
+    ],
+    [
+      "bids.3.admissible",
+      186
+    ],
+    [
+      "bids.6.conform",
+      180
+    ],
+    [
+      "bids.8",
+      176
+    ],
+    [
+      "bids.8.id",
+      176
+    ],
+    [
+      "bids.8.value",
+      176
+    ],
+    [
+      "bids.8.valueUnit",
+      176
+    ],
+    [
+      "parties.8",
+      156
+    ],
+    [
+      "parties.8.name",
+      156
+    ],
+    [
+      "parties.8.id",
+      156
+    ],
+    [
+      "parties.8.address",
+      156
+    ],
+    [
+      "8.address.region",
+      156
+    ],
+    [
+      "8.address.countryName",
+      156
+    ],
+    [
+      "parties.8.roles",
+      156
+    ],
+    [
+      "8.roles.0",
+      156
+    ],
+    [
+      "tender.tenderers.7",
+      156
+    ],
+    [
+      "tenderers.7.id",
+      156
+    ],
+    [
+      "tenderers.7.name",
+      156
+    ],
+    [
+      "8.address.streetAddress",
+      154
+    ],
+    [
+      "8.address.locality",
+      154
+    ],
+    [
+      "8.address.postalCode",
+      154
+    ],
+    [
+      "parties.8.details",
+      153
+    ],
+    [
+      "8.details.NEQ",
+      153
+    ],
+    [
+      "bids.4.admissible",
+      140
+    ],
+    [
+      "bids.9",
+      138
+    ],
+    [
+      "bids.9.id",
+      138
+    ],
+    [
+      "bids.9.value",
+      138
+    ],
+    [
+      "bids.9.valueUnit",
+      138
+    ],
+    [
+      "1.value.amount",
+      136
+    ],
+    [
+      "1.value.currency",
+      136
+    ],
+    [
+      "bids.7.conform",
+      123
+    ],
+    [
+      "awards.1",
+      113
+    ],
+    [
+      "awards.1.id",
+      113
+    ],
+    [
+      "awards.1.status",
+      113
+    ],
+    [
+      "awards.1.date",
+      113
+    ],
+    [
+      "awards.1.value",
+      113
+    ],
+    [
+      "awards.1.suppliers",
+      113
+    ],
+    [
+      "1.suppliers.0",
+      113
+    ],
+    [
+      "bids.10",
+      108
+    ],
+    [
+      "bids.10.id",
+      108
+    ],
+    [
+      "bids.10.value",
+      108
+    ],
+    [
+      "bids.10.valueUnit",
+      108
+    ],
+    [
+      "parties.9",
+      95
+    ],
+    [
+      "parties.9.name",
+      95
+    ],
+    [
+      "parties.9.id",
+      95
+    ],
+    [
+      "parties.9.address",
+      95
+    ],
+    [
+      "9.address.region",
+      95
+    ],
+    [
+      "9.address.countryName",
+      95
+    ],
+    [
+      "parties.9.roles",
+      95
+    ],
+    [
+      "9.roles.0",
+      95
+    ],
+    [
+      "tender.tenderers.8",
+      95
+    ],
+    [
+      "tenderers.8.id",
+      95
+    ],
+    [
+      "tenderers.8.name",
+      95
+    ],
+    [
+      "9.address.streetAddress",
+      94
+    ],
+    [
+      "9.address.locality",
+      94
+    ],
+    [
+      "9.address.postalCode",
+      94
+    ],
+    [
+      "parties.9.details",
+      92
+    ],
+    [
+      "9.details.NEQ",
+      92
+    ],
+    [
+      "bids.5.admissible",
+      92
+    ],
+    [
+      "bids.11",
+      85
+    ],
+    [
+      "bids.11.id",
+      85
+    ],
+    [
+      "bids.11.value",
+      85
+    ],
+    [
+      "bids.11.valueUnit",
+      85
+    ],
+    [
+      "bids.8.conform",
+      82
+    ],
+    [
+      "2.value.amount",
+      76
+    ],
+    [
+      "2.value.currency",
+      76
+    ],
+    [
+      "bids.6.admissible",
+      72
+    ],
+    [
+      "tender.lots",
+      71
+    ],
+    [
+      "tender.lots.0",
+      71
+    ],
+    [
+      "lots.0.id",
+      71
+    ],
+    [
+      "lots.0.title",
+      71
+    ],
+    [
+      "lots.0.status",
+      71
+    ],
+    [
+      "bids.12",
+      68
+    ],
+    [
+      "bids.12.id",
+      68
+    ],
+    [
+      "bids.12.value",
+      68
+    ],
+    [
+      "bids.12.valueUnit",
+      68
+    ],
+    [
+      "bids.0.relatedLots",
+      68
+    ],
+    [
+      "0.relatedLots.0",
+      68
+    ],
+    [
+      "tender.lots.1",
+      67
+    ],
+    [
+      "lots.1.id",
+      67
+    ],
+    [
+      "lots.1.title",
+      67
+    ],
+    [
+      "lots.1.status",
+      67
+    ],
+    [
+      "bids.1.relatedLots",
+      64
+    ],
+    [
+      "1.relatedLots.0",
+      64
+    ],
+    [
+      "bids.9.conform",
+      63
+    ],
+    [
+      "parties.10",
+      62
+    ],
+    [
+      "parties.10.name",
+      62
+    ],
+    [
+      "parties.10.id",
+      62
+    ],
+    [
+      "parties.10.address",
+      62
+    ],
+    [
+      "10.address.streetAddress",
+      62
+    ],
+    [
+      "10.address.locality",
+      62
+    ],
+    [
+      "10.address.region",
+      62
+    ],
+    [
+      "10.address.countryName",
+      62
+    ],
+    [
+      "10.address.postalCode",
+      62
+    ],
+    [
+      "parties.10.roles",
+      62
+    ],
+    [
+      "10.roles.0",
+      62
+    ],
+    [
+      "tender.tenderers.9",
+      62
+    ],
+    [
+      "tenderers.9.id",
+      62
+    ],
+    [
+      "tenderers.9.name",
+      62
+    ],
+    [
+      "awards.2",
+      62
+    ],
+    [
+      "awards.2.id",
+      62
+    ],
+    [
+      "awards.2.status",
+      62
+    ],
+    [
+      "awards.2.date",
+      62
+    ],
+    [
+      "awards.2.value",
+      62
+    ],
+    [
+      "awards.2.suppliers",
+      62
+    ],
+    [
+      "2.suppliers.0",
+      62
+    ],
+    [
+      "parties.10.details",
+      61
+    ],
+    [
+      "10.details.NEQ",
+      61
+    ],
+    [
+      "bids.13",
+      61
+    ],
+    [
+      "bids.13.id",
+      61
+    ],
+    [
+      "bids.13.value",
+      61
+    ],
+    [
+      "bids.13.valueUnit",
+      61
+    ],
+    [
+      "bids.2.relatedLots",
+      57
+    ],
+    [
+      "2.relatedLots.0",
+      57
+    ],
+    [
+      "bids.7.admissible",
+      55
+    ],
+    [
+      "bids.3.relatedLots",
+      52
+    ],
+    [
+      "3.relatedLots.0",
+      52
+    ],
+    [
+      "bids.14",
+      51
+    ],
+    [
+      "bids.14.id",
+      51
+    ],
+    [
+      "bids.14.value",
+      51
+    ],
+    [
+      "bids.14.valueUnit",
+      51
+    ],
+    [
+      "3.value.amount",
+      49
+    ],
+    [
+      "3.value.currency",
+      49
+    ],
+    [
+      "bids.15",
+      47
+    ],
+    [
+      "bids.15.id",
+      47
+    ],
+    [
+      "bids.15.value",
+      47
+    ],
+    [
+      "bids.15.valueUnit",
+      47
+    ],
+    [
+      "bids.4.relatedLots",
+      45
+    ],
+    [
+      "4.relatedLots.0",
+      45
+    ],
+    [
+      "parties.11",
+      44
+    ],
+    [
+      "parties.11.name",
+      44
+    ],
+    [
+      "parties.11.id",
+      44
+    ],
+    [
+      "parties.11.address",
+      44
+    ],
+    [
+      "11.address.streetAddress",
+      44
+    ],
+    [
+      "11.address.locality",
+      44
+    ],
+    [
+      "11.address.region",
+      44
+    ],
+    [
+      "11.address.countryName",
+      44
+    ],
+    [
+      "11.address.postalCode",
+      44
+    ],
+    [
+      "parties.11.roles",
+      44
+    ],
+    [
+      "11.roles.0",
+      44
+    ],
+    [
+      "tender.tenderers.10",
+      44
+    ],
+    [
+      "tenderers.10.id",
+      44
+    ],
+    [
+      "tenderers.10.name",
+      44
+    ],
+    [
+      "bids.10.conform",
+      44
+    ],
+    [
+      "bids.16",
+      43
+    ],
+    [
+      "bids.16.id",
+      43
+    ],
+    [
+      "bids.16.value",
+      43
+    ],
+    [
+      "bids.16.valueUnit",
+      43
+    ],
+    [
+      "bids.17",
+      42
+    ],
+    [
+      "bids.17.id",
+      42
+    ],
+    [
+      "bids.17.value",
+      42
+    ],
+    [
+      "bids.17.valueUnit",
+      42
+    ],
+    [
+      "parties.11.details",
+      41
+    ],
+    [
+      "11.details.NEQ",
+      41
+    ],
+    [
+      "bids.5.relatedLots",
+      40
+    ],
+    [
+      "5.relatedLots.0",
+      40
+    ],
+    [
+      "awards.3",
+      39
+    ],
+    [
+      "awards.3.id",
+      39
+    ],
+    [
+      "awards.3.status",
+      39
+    ],
+    [
+      "awards.3.date",
+      39
+    ],
+    [
+      "awards.3.value",
+      39
+    ],
+    [
+      "awards.3.suppliers",
+      39
+    ],
+    [
+      "3.suppliers.0",
+      39
+    ],
+    [
+      "bids.18",
+      39
+    ],
+    [
+      "bids.18.id",
+      39
+    ],
+    [
+      "bids.18.value",
+      39
+    ],
+    [
+      "bids.18.valueUnit",
+      39
+    ],
+    [
+      "bids.8.admissible",
+      38
+    ],
+    [
+      "tender.lots.2",
+      37
+    ],
+    [
+      "lots.2.id",
+      37
+    ],
+    [
+      "lots.2.title",
+      37
+    ],
+    [
+      "lots.2.status",
+      37
+    ],
+    [
+      "4.value.amount",
+      36
+    ],
+    [
+      "4.value.currency",
+      36
+    ],
+    [
+      "bids.19",
+      36
+    ],
+    [
+      "bids.19.id",
+      36
+    ],
+    [
+      "bids.19.value",
+      36
+    ],
+    [
+      "bids.19.valueUnit",
+      36
+    ],
+    [
+      "bids.6.relatedLots",
+      36
+    ],
+    [
+      "6.relatedLots.0",
+      36
+    ],
+    [
+      "bids.9.admissible",
+      35
+    ],
+    [
+      "parties.12",
+      33
+    ],
+    [
+      "parties.12.name",
+      33
+    ],
+    [
+      "parties.12.id",
+      33
+    ],
+    [
+      "parties.12.address",
+      33
+    ],
+    [
+      "12.address.region",
+      33
+    ],
+    [
+      "12.address.countryName",
+      33
+    ],
+    [
+      "parties.12.roles",
+      33
+    ],
+    [
+      "12.roles.0",
+      33
+    ],
+    [
+      "tender.tenderers.11",
+      33
+    ],
+    [
+      "tenderers.11.id",
+      33
+    ],
+    [
+      "tenderers.11.name",
+      33
+    ],
+    [
+      "bids.11.conform",
+      33
+    ],
+    [
+      "12.address.streetAddress",
+      32
+    ],
+    [
+      "12.address.locality",
+      32
+    ],
+    [
+      "12.address.postalCode",
+      32
+    ],
+    [
+      "bids.20",
+      32
+    ],
+    [
+      "bids.20.id",
+      32
+    ],
+    [
+      "bids.20.value",
+      32
+    ],
+    [
+      "bids.20.valueUnit",
+      32
+    ],
+    [
+      "bids.7.relatedLots",
+      32
+    ],
+    [
+      "7.relatedLots.0",
+      32
+    ],
+    [
+      "parties.12.details",
+      31
+    ],
+    [
+      "12.details.NEQ",
+      31
+    ],
+    [
+      "bids.21",
+      29
+    ],
+    [
+      "bids.21.id",
+      29
+    ],
+    [
+      "bids.21.value",
+      29
+    ],
+    [
+      "bids.21.valueUnit",
+      29
+    ],
+    [
+      "bids.8.relatedLots",
+      29
+    ],
+    [
+      "8.relatedLots.0",
+      29
+    ],
+    [
+      "awards.4",
+      28
+    ],
+    [
+      "awards.4.id",
+      28
+    ],
+    [
+      "awards.4.status",
+      28
+    ],
+    [
+      "awards.4.date",
+      28
+    ],
+    [
+      "awards.4.value",
+      28
+    ],
+    [
+      "awards.4.suppliers",
+      28
+    ],
+    [
+      "4.suppliers.0",
+      28
+    ],
+    [
+      "bids.22",
+      28
+    ],
+    [
+      "bids.22.id",
+      28
+    ],
+    [
+      "bids.22.value",
+      28
+    ],
+    [
+      "bids.22.valueUnit",
+      28
+    ],
+    [
+      "5.value.amount",
+      26
+    ],
+    [
+      "5.value.currency",
+      26
+    ],
+    [
+      "bids.9.relatedLots",
+      26
+    ],
+    [
+      "9.relatedLots.0",
+      26
+    ],
+    [
+      "bids.23",
+      25
+    ],
+    [
+      "bids.23.id",
+      25
+    ],
+    [
+      "bids.23.value",
+      25
+    ],
+    [
+      "bids.23.valueUnit",
+      25
+    ],
+    [
+      "1.roles.1",
+      25
+    ],
+    [
+      "contracts.1",
+      23
+    ],
+    [
+      "contracts.1.id",
+      23
+    ],
+    [
+      "contracts.1.awardID",
+      23
+    ],
+    [
+      "contracts.1.status",
+      23
+    ],
+    [
+      "contracts.1.period",
+      23
+    ],
+    [
+      "1.period.endDate",
+      23
+    ],
+    [
+      "contracts.1.value",
+      23
+    ],
+    [
+      "contracts.1.dateSigned",
+      23
+    ],
+    [
+      "parties.13",
+      23
+    ],
+    [
+      "parties.13.name",
+      23
+    ],
+    [
+      "parties.13.id",
+      23
+    ],
+    [
+      "parties.13.address",
+      23
+    ],
+    [
+      "13.address.streetAddress",
+      23
+    ],
+    [
+      "13.address.locality",
+      23
+    ],
+    [
+      "13.address.region",
+      23
+    ],
+    [
+      "13.address.countryName",
+      23
+    ],
+    [
+      "13.address.postalCode",
+      23
+    ],
+    [
+      "parties.13.roles",
+      23
+    ],
+    [
+      "13.roles.0",
+      23
+    ],
+    [
+      "tender.tenderers.12",
+      23
+    ],
+    [
+      "tenderers.12.id",
+      23
+    ],
+    [
+      "tenderers.12.name",
+      23
+    ],
+    [
+      "bids.12.conform",
+      23
+    ],
+    [
+      "6.value.amount",
+      23
+    ],
+    [
+      "6.value.currency",
+      23
+    ],
+    [
+      "bids.10.relatedLots",
+      23
+    ],
+    [
+      "10.relatedLots.0",
+      23
+    ],
+    [
+      "bids.10.admissible",
+      22
+    ]
+  ],
+  "value_samples": {
+    "date": [
+      "2010-11-24T10:30:55Z",
+      "2010-12-03T11:27:26Z",
+      "2010-12-21T11:56:10Z",
+      "2011-01-14T11:57:37Z",
+      "2011-02-04T14:49:10Z"
+    ],
+    "awards": [
+      "[{\"id\": \"252327\", \"status\": \"active\", \"date\": \"2011-02-09T00:00:00Z\", \"value\": {\"amount\": 212420.0, \"currency\": \"CAD\"}, \"suppliers\": [{\"id\": \"FO-133649\", \"name\": \"SERVICES DE RÉFRIGÉRATION R. & S. INC.\"}]}]",
+      "[{\"id\": \"101440\", \"status\": \"active\", \"date\": \"2011-02-09T00:00:00Z\", \"value\": {\"amount\": 363884.42, \"currency\": \"CAD\"}, \"suppliers\": [{\"id\": \"FO-133638\", \"name\": \"Les Constructions B.G.P.\"}]}]",
+      "[{\"id\": \"98858\", \"status\": \"active\", \"date\": \"2011-03-23T00:00:00Z\", \"value\": {\"amount\": 144673.47, \"currency\": \"CAD\"}, \"suppliers\": [{\"id\": \"FO-137314\", \"name\": \"LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC.\"}]}]",
+      "[{\"id\": \"273398\", \"status\": \"active\", \"date\": \"2011-03-09T00:00:00Z\", \"value\": {\"amount\": 1581740.85, \"currency\": \"CAD\"}, \"suppliers\": [{\"id\": \"FO-137678\", \"name\": \"6369472 CANADA INC.\"}]}]",
+      "[{\"id\": \"124727\", \"status\": \"active\", \"date\": \"2011-03-23T00:00:00Z\", \"value\": {\"amount\": 91937.48, \"currency\": \"CAD\"}, \"suppliers\": [{\"id\": \"FO-139991\", \"name\": \"6739741 CANADA INC.\"}]}]"
+    ],
+    "contracts": [
+      "[{\"id\": \"252327\", \"awardID\": \"252327\", \"status\": \"terminated\", \"period\": {\"endDate\": \"2022-10-14T00:00:00Z\"}, \"value\": {\"amount\": 224980.47, \"currency\": \"CAD\"}, \"dateSigned\": \"2011-02-09T00:00:00Z\"}]",
+      "[{\"id\": \"101440\", \"awardID\": \"101440\", \"status\": \"terminated\", \"period\": {\"endDate\": \"2021-10-15T00:00:00Z\"}, \"value\": {\"amount\": 365626.16, \"currency\": \"CAD\"}, \"dateSigned\": \"2011-02-09T00:00:00Z\"}]",
+      "[{\"id\": \"98858\", \"awardID\": \"98858\", \"status\": \"terminated\", \"period\": {\"endDate\": \"2022-10-07T00:00:00Z\"}, \"value\": {\"amount\": 152666.86, \"currency\": \"CAD\"}, \"dateSigned\": \"2011-03-23T00:00:00Z\"}]",
+      "[{\"id\": \"273398\", \"awardID\": \"273398\", \"status\": \"terminated\", \"period\": {\"endDate\": \"2011-10-14T00:00:00Z\"}, \"value\": {\"amount\": 1858085.8, \"currency\": \"CAD\"}, \"dateSigned\": \"2011-03-09T00:00:00Z\"}]",
+      "[{\"id\": \"124727\", \"awardID\": \"124727\", \"status\": \"terminated\", \"period\": {\"endDate\": \"2022-10-14T00:00:00Z\"}, \"value\": {\"amount\": 100300.19, \"currency\": \"CAD\"}, \"dateSigned\": \"2011-03-23T00:00:00Z\"}]"
+    ]
+  },
+  "samples": [
+    {
+      "ocid": "ocds-ec9k95-471797",
+      "id": "20101124103055",
+      "date": "2010-11-24T10:30:55Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "INGÉNIERIE CARMICHAEL LTÉE",
+          "id": "FO-133647",
+          "address": {
+            "streetAddress": "3822, av. de Courtrai",
+            "locality": "Montréal",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "H3S 1C1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1146007969"
+          }
+        },
+        {
+          "name": "Plano Construction",
+          "id": "FO-133648",
+          "address": {
+            "streetAddress": "99C Crémazie",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8y 3p1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1143311133"
+          }
+        },
+        {
+          "name": "SERVICES DE RÉFRIGÉRATION R. & S. INC.",
+          "id": "FO-133649",
+          "address": {
+            "streetAddress": "8027, 14e avenue",
+            "locality": "Montréal",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "H1Z 3M1"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1144440717"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2010 SP 309",
+        "title": "Remplacement des refroidiseurs à saumure, des clapets anti-retour et de conduits de contrôle - divers arénas",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 40151726,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "40151726",
+              "description": "Pièces remplacement pour pompes de circulation"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "G22",
+                "description": "G22 - Produits divers"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "goods",
+        "additionalProcurementCategories": [
+          "Approvisionnement (biens)"
+        ],
+        "tenderPeriod": {
+          "startDate": "2010-11-24T10:30:55Z",
+          "endDate": "2011-01-10T14:00:00Z",
+          "durationInDays": 47
+        },
+        "numberOfTenderers": 3,
+        "tenderers": [
+          {
+            "id": "FO-133647",
+            "name": "INGÉNIERIE CARMICHAEL LTÉE"
+          },
+          {
+            "id": "FO-133648",
+            "name": "Plano Construction"
+          },
+          {
+            "id": "FO-133649",
+            "name": "SERVICES DE RÉFRIGÉRATION R. & S. INC."
+          }
+        ],
+        "documents": [
+          {
+            "id": "20101124103055",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=d250d9e2-6612-43bd-a552-177acea97d9b"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-133647",
+          "conform": "1",
+          "value": 186456.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133648",
+          "conform": "1",
+          "value": 194329.23,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133649",
+          "conform": "1",
+          "value": 272826.94,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "252327",
+          "status": "active",
+          "date": "2011-02-09T00:00:00Z",
+          "value": {
+            "amount": 212420.0,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-133649",
+              "name": "SERVICES DE RÉFRIGÉRATION R. & S. INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "252327",
+          "awardID": "252327",
+          "status": "terminated",
+          "period": {
+            "endDate": "2022-10-14T00:00:00Z"
+          },
+          "value": {
+            "amount": 224980.47,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-02-09T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-473562",
+      "id": "2010123112726",
+      "date": "2010-12-03T11:27:26Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "9129-6558 QUÉBEC INC.",
+          "id": "FO-133633",
+          "address": {
+            "streetAddress": "910 chemin du Village",
+            "locality": "Morin-Heights",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J0R 1H0"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1161519989"
+          }
+        },
+        {
+          "name": "LES CONSTRUCTIONS CJRB INC.",
+          "id": "FO-133634",
+          "address": {
+            "streetAddress": "3000 rue Anderson",
+            "locality": "Terrebonne",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J6Y 1W1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1141930835"
+          }
+        },
+        {
+          "name": "Constructions Novex Inc.",
+          "id": "FO-133635",
+          "address": {
+            "streetAddress": "685 rue Vernon",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K4"
+          },
+          "roles": [
+            "tenderer"
+          ]
+        },
+        {
+          "name": "6369472 CANADA INC.",
+          "id": "FO-133636",
+          "address": {
+            "streetAddress": "1651 Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1162912423"
+          }
+        },
+        {
+          "name": "LOISELLE INC.",
+          "id": "FO-133637",
+          "address": {
+            "streetAddress": "1679, Jean-Louis-Malette",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 0C1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1142482703"
+          }
+        },
+        {
+          "name": "Les Constructions B.G.P.",
+          "id": "FO-133638",
+          "address": {
+            "streetAddress": "139 av. Gatineau",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8t 4j7"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1172279631"
+          }
+        },
+        {
+          "name": "10023914 CANADA INC.",
+          "id": "FO-133639",
+          "address": {
+            "streetAddress": "1655, rue Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1172386360"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2010 SP 235",
+        "title": "Construction de la rue Bombardier - Phase 1",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 72102405,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "72102405",
+              "description": "Services de marquage de la chaussée"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2010-12-03T11:27:26Z",
+          "endDate": "2011-01-10T14:00:00Z",
+          "durationInDays": 38
+        },
+        "numberOfTenderers": 7,
+        "tenderers": [
+          {
+            "id": "FO-133633",
+            "name": "9129-6558 QUÉBEC INC."
+          },
+          {
+            "id": "FO-133634",
+            "name": "LES CONSTRUCTIONS CJRB INC."
+          },
+          {
+            "id": "FO-133635",
+            "name": "Constructions Novex Inc."
+          },
+          {
+            "id": "FO-133636",
+            "name": "6369472 CANADA INC."
+          },
+          {
+            "id": "FO-133637",
+            "name": "LOISELLE INC."
+          },
+          {
+            "id": "FO-133638",
+            "name": "Les Constructions B.G.P."
+          },
+          {
+            "id": "FO-133639",
+            "name": "10023914 CANADA INC."
+          }
+        ],
+        "documents": [
+          {
+            "id": "2010123112726",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=025cea0f-bb6e-4d22-8b24-b741fb0d2b0f"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-133633",
+          "conform": "1",
+          "value": 455343.93,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133634",
+          "conform": "1",
+          "value": 394282.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133635",
+          "conform": "1",
+          "value": 405307.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133636",
+          "conform": "1",
+          "value": 348313.46,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133637",
+          "conform": "1",
+          "value": 387572.01,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133638",
+          "conform": "0",
+          "value": 319407.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-133639",
+          "conform": "1",
+          "value": 378127.0,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "101440",
+          "status": "active",
+          "date": "2011-02-09T00:00:00Z",
+          "value": {
+            "amount": 363884.42,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-133638",
+              "name": "Les Constructions B.G.P."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "101440",
+          "awardID": "101440",
+          "status": "terminated",
+          "period": {
+            "endDate": "2021-10-15T00:00:00Z"
+          },
+          "value": {
+            "amount": 365626.16,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-02-09T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-480086",
+      "id": "20101221115610",
+      "date": "2010-12-21T11:56:10Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "9054-4768 QUÉBEC INC.",
+          "id": "FO-137311",
+          "address": {
+            "streetAddress": "710 # 1 Rue de Vernon",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K5"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1147107172"
+          }
+        },
+        {
+          "name": "DEFRAN INCORPORÉE",
+          "id": "FO-137312",
+          "address": {
+            "streetAddress": "55 Breadner",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8Y 2L7"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1142110841"
+          }
+        },
+        {
+          "name": "D.L.S. CONSTRUCTION INC.",
+          "id": "FO-137313",
+          "address": {
+            "streetAddress": "10, rue Lois",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8Y 3R1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1144215010"
+          }
+        },
+        {
+          "name": "LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC.",
+          "id": "FO-137314",
+          "address": {
+            "streetAddress": "30-A, rue du Grésil",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9A 3L8"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1166591686"
+          }
+        },
+        {
+          "name": "Marc Cléroux Construction Inc.",
+          "id": "FO-137315",
+          "address": {
+            "streetAddress": "183, chemin Freeman",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8Z 2A7"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1149427248"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2010 SP 162",
+        "title": "Rénovation extérieure - Vieux-Marché de Buckingham",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 72102801,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "72102801",
+              "description": "Rénovation d'immeubles ou de lieux historiques ou de monuments"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2010-12-21T11:56:10Z",
+          "endDate": "2011-02-10T14:00:00Z",
+          "durationInDays": 51
+        },
+        "numberOfTenderers": 5,
+        "tenderers": [
+          {
+            "id": "FO-137311",
+            "name": "9054-4768 QUÉBEC INC."
+          },
+          {
+            "id": "FO-137312",
+            "name": "DEFRAN INCORPORÉE"
+          },
+          {
+            "id": "FO-137313",
+            "name": "D.L.S. CONSTRUCTION INC."
+          },
+          {
+            "id": "FO-137314",
+            "name": "LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC."
+          },
+          {
+            "id": "FO-137315",
+            "name": "Marc Cléroux Construction Inc."
+          }
+        ],
+        "documents": [
+          {
+            "id": "20101221115610",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=2854651d-62b2-4187-83d8-5b83458ddbd7"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-137311",
+          "conform": "1",
+          "value": 288786.48,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137312",
+          "conform": "1",
+          "value": 158421.77,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137313",
+          "conform": "1",
+          "value": 169540.49,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137314",
+          "conform": "1",
+          "value": 126990.1,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137315",
+          "conform": "1",
+          "value": 164143.08,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "98858",
+          "status": "active",
+          "date": "2011-03-23T00:00:00Z",
+          "value": {
+            "amount": 144673.47,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-137314",
+              "name": "LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "98858",
+          "awardID": "98858",
+          "status": "terminated",
+          "period": {
+            "endDate": "2022-10-07T00:00:00Z"
+          },
+          "value": {
+            "amount": 152666.86,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-03-23T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-482558",
+      "id": "2011114115737",
+      "date": "2011-01-14T11:57:37Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "LES CONSTRUCTIONS CJRB INC.",
+          "id": "FO-137676",
+          "address": {
+            "streetAddress": "3000 rue Anderson",
+            "locality": "Terrebonne",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J6Y 1W1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1141930835"
+          }
+        },
+        {
+          "name": "Constructions Novex Inc.",
+          "id": "FO-137677",
+          "address": {
+            "streetAddress": "685 rue Vernon",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K4"
+          },
+          "roles": [
+            "tenderer"
+          ]
+        },
+        {
+          "name": "6369472 CANADA INC.",
+          "id": "FO-137678",
+          "address": {
+            "streetAddress": "1651 Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1162912423"
+          }
+        },
+        {
+          "name": "Les Excavations Gilbert Théorêt Inc.",
+          "id": "FO-137679",
+          "address": {
+            "streetAddress": "124 rue Huot",
+            "locality": "Notre-Dame-de-l'Ile-Perrot",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J7V 7Z8"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1142215210"
+          }
+        },
+        {
+          "name": "10023914 CANADA INC.",
+          "id": "FO-137680",
+          "address": {
+            "streetAddress": "1655, rue Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1172386360"
+          }
+        },
+        {
+          "name": "PRONEX EXCAVATION INC.",
+          "id": "FO-137681",
+          "address": {
+            "streetAddress": "320-346 av Hamford",
+            "locality": "Lachute",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8H 3P6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1143252212"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2011 SP 016",
+        "title": "Renouvellement des services municipaux d'aqueduc et d'égout - Programme PRECO - Lot 7",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 30222200,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "30222200",
+              "description": "Ouvrages pour services publics"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2011-01-14T11:57:37Z",
+          "endDate": "2011-02-14T14:00:00Z",
+          "durationInDays": 31
+        },
+        "numberOfTenderers": 6,
+        "tenderers": [
+          {
+            "id": "FO-137676",
+            "name": "LES CONSTRUCTIONS CJRB INC."
+          },
+          {
+            "id": "FO-137677",
+            "name": "Constructions Novex Inc."
+          },
+          {
+            "id": "FO-137678",
+            "name": "6369472 CANADA INC."
+          },
+          {
+            "id": "FO-137679",
+            "name": "Les Excavations Gilbert Théorêt Inc."
+          },
+          {
+            "id": "FO-137680",
+            "name": "10023914 CANADA INC."
+          },
+          {
+            "id": "FO-137681",
+            "name": "PRONEX EXCAVATION INC."
+          }
+        ],
+        "documents": [
+          {
+            "id": "2011114115737",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=b66d786a-6fac-4989-8762-c5d458b19f7b"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-137676",
+          "conform": "1",
+          "value": 1986418.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137677",
+          "conform": "1",
+          "value": 1393668.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137678",
+          "conform": "1",
+          "value": 1388405.4,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137679",
+          "conform": "1",
+          "value": 1917594.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137680",
+          "conform": "1",
+          "value": 1429910.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-137681",
+          "conform": "1",
+          "value": 1529661.58,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "273398",
+          "status": "active",
+          "date": "2011-03-09T00:00:00Z",
+          "value": {
+            "amount": 1581740.85,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-137678",
+              "name": "6369472 CANADA INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "273398",
+          "awardID": "273398",
+          "status": "terminated",
+          "period": {
+            "endDate": "2011-10-14T00:00:00Z"
+          },
+          "value": {
+            "amount": 1858085.8,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-03-09T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-485727",
+      "id": "201124144910",
+      "date": "2011-02-04T14:49:10Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "6739741 CANADA INC.",
+          "id": "FO-139991",
+          "address": {
+            "streetAddress": "689 St Joseph, Suite 106",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8Y 4B4"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1164343536"
+          }
+        },
+        {
+          "name": "LES INDUSTRIES CAMA",
+          "id": "FO-139992",
+          "address": {
+            "streetAddress": "780-B Rue de Vernon, Gatineau",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K5"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1161841052"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2010 SP 295",
+        "title": "Implantaton d'un centre d'opération et de surveillance - Maison du citoyen - Projet 09-026",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 30222112,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "30222112",
+              "description": "Centres municipaux"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2011-02-04T14:49:10Z",
+          "endDate": "2011-02-28T14:00:00Z",
+          "durationInDays": 23
+        },
+        "numberOfTenderers": 2,
+        "tenderers": [
+          {
+            "id": "FO-139991",
+            "name": "6739741 CANADA INC."
+          },
+          {
+            "id": "FO-139992",
+            "name": "LES INDUSTRIES CAMA"
+          }
+        ],
+        "documents": [
+          {
+            "id": "201124144910",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=3c66f9fd-7873-4bc4-a861-c9b4a258b9fa"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-139991",
+          "conform": "1",
+          "value": 80700.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-139992",
+          "conform": "1",
+          "value": 113386.0,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "124727",
+          "status": "active",
+          "date": "2011-03-23T00:00:00Z",
+          "value": {
+            "amount": 91937.48,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-139991",
+              "name": "6739741 CANADA INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "124727",
+          "awardID": "124727",
+          "status": "terminated",
+          "period": {
+            "endDate": "2022-10-14T00:00:00Z"
+          },
+          "value": {
+            "amount": 100300.19,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-03-23T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-487454",
+      "id": "2011215124429",
+      "date": "2011-02-15T12:44:29Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "BEAUDOIN 399051 CANADA INC.",
+          "id": "FO-141519",
+          "address": {
+            "streetAddress": "600 Vernon",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K5"
+          },
+          "roles": [
+            "tenderer"
+          ]
+        },
+        {
+          "name": "Entrepreneurs de Construction Concordia  Inc.",
+          "id": "FO-141520",
+          "address": {
+            "streetAddress": "7900 av Marco-Polo",
+            "locality": "Montréal",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "H1E 2S5"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1167142273"
+          }
+        },
+        {
+          "name": "D.L.S. CONSTRUCTION INC.",
+          "id": "FO-141521",
+          "address": {
+            "streetAddress": "10, rue Lois",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8Y 3R1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1144215010"
+          }
+        },
+        {
+          "name": "LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC.",
+          "id": "FO-141522",
+          "address": {
+            "streetAddress": "30-A, rue du Grésil",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9A 3L8"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1166591686"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2011 SP 006",
+        "title": "Réfection de la dalle et des conduits de réfrigération - Aréna Baribeau - Projet 10-039",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 72100000,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "72100000",
+              "description": "Services de construction, de réparation et d'entretien d'immeubles"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2011-02-15T12:44:29Z",
+          "endDate": "2011-03-09T14:00:00Z",
+          "durationInDays": 22
+        },
+        "numberOfTenderers": 4,
+        "tenderers": [
+          {
+            "id": "FO-141519",
+            "name": "BEAUDOIN 399051 CANADA INC."
+          },
+          {
+            "id": "FO-141520",
+            "name": "Entrepreneurs de Construction Concordia  Inc."
+          },
+          {
+            "id": "FO-141521",
+            "name": "D.L.S. CONSTRUCTION INC."
+          },
+          {
+            "id": "FO-141522",
+            "name": "LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC."
+          }
+        ],
+        "documents": [
+          {
+            "id": "2011215124429",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=de7f82f4-03cd-42ca-8f0d-ce2c7e559bb2"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-141519",
+          "conform": "0",
+          "value": 718016.24,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-141520",
+          "conform": "1",
+          "value": 756893.39,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-141521",
+          "conform": "0",
+          "value": 687294.27,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-141522",
+          "conform": "1",
+          "value": 663079.16,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "268314",
+          "status": "active",
+          "date": "2011-03-30T00:00:00Z",
+          "value": {
+            "amount": 778197.83,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-141522",
+              "name": "LALONDE CANTIN CONSTRUCTION & ASSOCIÉS CANADA INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "268314",
+          "awardID": "268314",
+          "status": "terminated",
+          "period": {
+            "endDate": "2022-10-14T00:00:00Z"
+          },
+          "value": {
+            "amount": 869249.85,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-03-30T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-488049",
+      "id": "2011222152142",
+      "date": "2011-02-22T15:21:42Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "Construction Garnier Ltée",
+          "id": "FO-142421",
+          "address": {
+            "streetAddress": "3980 boul Leman",
+            "locality": "Laval",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "H7E 1A1"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1144452167"
+          }
+        },
+        {
+          "name": "10023914 CANADA INC.",
+          "id": "FO-142422",
+          "address": {
+            "streetAddress": "1655, rue Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1172386360"
+          }
+        },
+        {
+          "name": "PRONEX EXCAVATION INC.",
+          "id": "FO-142423",
+          "address": {
+            "streetAddress": "320-346 av Hamford",
+            "locality": "Lachute",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8H 3P6"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1143252212"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2011 SP 017",
+        "title": "Réaménagement des rues Montcalm et Papineau - Lot 1",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 30222059,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "30222059",
+              "description": "Postes de pompage d'eau d'égout"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2011-02-22T15:21:42Z",
+          "endDate": "2011-03-15T14:00:00Z",
+          "durationInDays": 20
+        },
+        "numberOfTenderers": 3,
+        "tenderers": [
+          {
+            "id": "FO-142421",
+            "name": "Construction Garnier Ltée"
+          },
+          {
+            "id": "FO-142422",
+            "name": "10023914 CANADA INC."
+          },
+          {
+            "id": "FO-142423",
+            "name": "PRONEX EXCAVATION INC."
+          }
+        ],
+        "documents": [
+          {
+            "id": "2011222152142",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=66f9a8c2-5548-45c1-a0ba-57ae9b0d0a7c"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-142421",
+          "conform": "1",
+          "value": 5920031.16,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-142422",
+          "conform": "1",
+          "value": 3574715.87,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-142423",
+          "conform": "1",
+          "value": 5848015.47,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "230042",
+          "status": "active",
+          "date": "2011-04-07T00:00:00Z",
+          "value": {
+            "amount": 5848015.47,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-142423",
+              "name": "PRONEX EXCAVATION INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "230042",
+          "awardID": "230042",
+          "status": "terminated",
+          "period": {
+            "endDate": "2022-10-14T00:00:00Z"
+          },
+          "value": {
+            "amount": 6055473.82,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-04-07T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "ocid": "ocds-ec9k95-489815",
+      "id": "201132142621",
+      "date": "2011-03-02T14:26:21Z",
+      "language": "fr",
+      "tag": [
+        "contractTermination"
+      ],
+      "initiationType": "tender",
+      "parties": [
+        {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096",
+          "address": {
+            "streetAddress": "476, boul. St-René Est, ",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8p8a9"
+          },
+          "roles": [
+            "buyer"
+          ],
+          "details": {
+            "Municipal": "1"
+          }
+        },
+        {
+          "name": "CARRIÈRES EDELWEISS INC.",
+          "id": "FO-145441",
+          "address": {
+            "streetAddress": "960, Chemin Edelweiss",
+            "locality": "La Pêche",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J0X 3G0"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1162595558"
+          }
+        },
+        {
+          "name": "Constructions Novex Inc.",
+          "id": "FO-145442",
+          "address": {
+            "streetAddress": "685 rue Vernon",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K4"
+          },
+          "roles": [
+            "tenderer"
+          ]
+        },
+        {
+          "name": "6369472 CANADA INC.",
+          "id": "FO-145443",
+          "address": {
+            "streetAddress": "1651 Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1162912423"
+          }
+        },
+        {
+          "name": "Les Constructions B.G.P.",
+          "id": "FO-145444",
+          "address": {
+            "streetAddress": "139 av. Gatineau",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "j8t 4j7"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1172279631"
+          }
+        },
+        {
+          "name": "Les Constructions et Pavage Jeskar Inc.",
+          "id": "FO-145445",
+          "address": {
+            "streetAddress": "5181 Amiens, suite 202",
+            "locality": "Montréal",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "H1G 6N9"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1145922051"
+          }
+        },
+        {
+          "name": "10023914 CANADA INC.",
+          "id": "FO-145446",
+          "address": {
+            "streetAddress": "1655, rue Routhier",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8R 3Y6"
+          },
+          "roles": [
+            "supplier"
+          ],
+          "details": {
+            "NEQ": "1172386360"
+          }
+        },
+        {
+          "name": "GIP PAVING INC.",
+          "id": "FO-145447",
+          "address": {
+            "streetAddress": "40-636 chemin Klock",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3G9"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1165861502"
+          }
+        },
+        {
+          "name": "130247 CANADA INC.",
+          "id": "FO-145448",
+          "address": {
+            "streetAddress": "485 rue de Vernon",
+            "locality": "Gatineau",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J9J 3K4"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1143974021"
+          }
+        },
+        {
+          "name": "PRONEX EXCAVATION INC.",
+          "id": "FO-145449",
+          "address": {
+            "streetAddress": "320-346 av Hamford",
+            "locality": "Lachute",
+            "region": "QC",
+            "countryName": "CAN",
+            "postalCode": "J8H 3P6"
+          },
+          "roles": [
+            "tenderer"
+          ],
+          "details": {
+            "NEQ": "1143252212"
+          }
+        }
+      ],
+      "buyer": {
+        "name": "Ville de Gatineau.",
+        "id": "OP-14096"
+      },
+      "tender": {
+        "id": "GAT 2011 SP 050",
+        "title": "Construction d'une piste multifonction sur le chemin McConnell - Phase 2",
+        "deliveryarea": "7",
+        "status": "complete",
+        "procuringEntity": {
+          "name": "Ville de Gatineau.",
+          "id": "OP-14096"
+        },
+        "items": [
+          {
+            "id": 72101703,
+            "description": "Classification UNSPSC principale",
+            "classification": {
+              "scheme": "UNSPSC",
+              "id": "72101703",
+              "description": "Construction de trottoirs ou de bordures"
+            },
+            "additionalClassifications": [
+              {
+                "scheme": "CATEGORY",
+                "id": "C03",
+                "description": "C03 - Autres travaux de construction"
+              }
+            ]
+          }
+        ],
+        "procurementMethod": "open",
+        "procurementMethodDetails": "Avis d'appel d'offres",
+        "mainProcurementCategory": "works",
+        "additionalProcurementCategories": [
+          "Travaux de construction"
+        ],
+        "tenderPeriod": {
+          "startDate": "2011-03-02T14:26:21Z",
+          "endDate": "2011-03-30T14:00:00Z",
+          "durationInDays": 27
+        },
+        "numberOfTenderers": 9,
+        "tenderers": [
+          {
+            "id": "FO-145441",
+            "name": "CARRIÈRES EDELWEISS INC."
+          },
+          {
+            "id": "FO-145442",
+            "name": "Constructions Novex Inc."
+          },
+          {
+            "id": "FO-145443",
+            "name": "6369472 CANADA INC."
+          },
+          {
+            "id": "FO-145444",
+            "name": "Les Constructions B.G.P."
+          },
+          {
+            "id": "FO-145445",
+            "name": "Les Constructions et Pavage Jeskar Inc."
+          },
+          {
+            "id": "FO-145446",
+            "name": "10023914 CANADA INC."
+          },
+          {
+            "id": "FO-145447",
+            "name": "GIP PAVING INC."
+          },
+          {
+            "id": "FO-145448",
+            "name": "130247 CANADA INC."
+          },
+          {
+            "id": "FO-145449",
+            "name": "PRONEX EXCAVATION INC."
+          }
+        ],
+        "documents": [
+          {
+            "id": "201132142621",
+            "url": "https://www.seao.ca/OpportunityPublication/avisconsultes.aspx?ItemId=1350e59c-d4db-46d1-b6bf-94977a70b6eb"
+          }
+        ]
+      },
+      "bids": [
+        {
+          "id": "FO-145441",
+          "conform": "1",
+          "value": 609611.18,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145442",
+          "conform": "1",
+          "value": 517907.56,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145443",
+          "conform": "1",
+          "value": 486278.6,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145444",
+          "conform": "1",
+          "value": 474085.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145445",
+          "conform": "1",
+          "value": 674320.39,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145446",
+          "conform": "1",
+          "value": 463460.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145447",
+          "conform": "1",
+          "value": 585033.0,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145448",
+          "conform": "1",
+          "value": 657994.75,
+          "valueUnit": "1"
+        },
+        {
+          "id": "FO-145449",
+          "conform": "1",
+          "value": 585531.25,
+          "valueUnit": "1"
+        }
+      ],
+      "awards": [
+        {
+          "id": "80719",
+          "status": "active",
+          "date": "2011-04-27T00:00:00Z",
+          "value": {
+            "amount": 527996.81,
+            "currency": "CAD"
+          },
+          "suppliers": [
+            {
+              "id": "FO-145446",
+              "name": "10023914 CANADA INC."
+            }
+          ]
+        }
+      ],
+      "contracts": [
+        {
+          "id": "80719",
+          "awardID": "80719",
+          "status": "terminated",
+          "period": {
+            "endDate": "2022-10-14T00:00:00Z"
+          },
+          "value": {
+            "amount": 578190.57,
+            "currency": "CAD"
+          },
+          "dateSigned": "2011-04-27T00:00:00Z"
+        }
+      ]
+    }
+  ]
+}
