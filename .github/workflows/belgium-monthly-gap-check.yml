@@ -1,0 +1,42 @@
+name: Belgium monthly Release gap check
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-monthly-gap-check.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RAW_TAG: tender-raw-belgium-monthly-v2
+    steps:
+      - name: Compare durable Release assets to expected 36 months
+        run: |
+          gh release view "$RAW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > /tmp/assets.txt
+          python - <<'PY'
+          from pathlib import Path
+          expected=[]
+          y,m=2023,8
+          for _ in range(36):
+              expected.append(f'{y:04d}-{m:02d}')
+              m+=1
+              if m==13: y+=1;m=1
+          names=set(Path('/tmp/assets.txt').read_text().splitlines())
+          present=[];missing=[];partial=[]
+          for month in expected:
+              raw=f'belgium-bda-{month}.jsonl.gz';man=f'belgium-bda-{month}.manifest.json'
+              if raw in names and man in names: present.append(month)
+              elif raw in names or man in names: partial.append(month)
+              else: missing.append(month)
+          print('BELGIUM_MONTHS_PRESENT',len(present),','.join(present))
+          print('BELGIUM_MONTHS_MISSING',len(missing),','.join(missing))
+          print('BELGIUM_MONTHS_PARTIAL',len(partial),','.join(partial))
+          print('BELGIUM_EXPECTED',len(expected))
+          if partial: raise SystemExit('partial month assets detected')
+          PY
