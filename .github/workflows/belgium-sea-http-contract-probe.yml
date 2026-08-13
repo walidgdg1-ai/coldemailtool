@@ -1,0 +1,77 @@
+name: Extract Belgium SEA public HTTP call contract
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-sea-http-contract-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Extract only public Search API call expressions
+        run: |
+          python - <<'PY'
+          import urllib.request,re,urllib.parse
+          H={'User-Agent':'Mozilla/5.0 TenderResearch/1.0','Accept':'*/*'}
+          base='https://www.publicprocurement.be/assets/'
+          seeds=['BDAPage-CAfmlDOE.js','700-Bn7hygrP.js']
+          def get(name):
+              req=urllib.request.Request(urllib.parse.urljoin(base,name),headers=H)
+              with urllib.request.urlopen(req,timeout=40) as r:return r.read(45_000_000).decode('utf-8','replace')
+          blobs={};queue=list(seeds)
+          while queue and len(blobs)<80:
+              name=queue.pop(0)
+              if name in blobs:continue
+              try:data=get(name)
+              except Exception as e: print('LOAD_ERROR',name,repr(e));continue
+              blobs[name]=data
+              for dep in re.findall(r'(?:from|import)["\']\.\/([^"\']+\.js)["\']',data):
+                  if dep not in blobs:queue.append(dep)
+          print('FILES',len(blobs))
+          needles=['publicationDateFrom','publicationDateTo','getFiltersUsingShortLink','shortLink','itemsPerPage','publicationLanguages']
+          # Print only tight contexts around filter/action symbols; deliberately never load env.config.js.
+          for name,data in blobs.items():
+              if not any(n in data for n in needles):continue
+              print('MATCH_FILE',name,'CHARS',len(data))
+              spans=[]
+              for n in needles:
+                  for m in re.finditer(re.escape(n),data):spans.append((max(0,m.start()-1200),min(len(data),m.start()+2400),n))
+              used=[]
+              for a,b,n in sorted(spans):
+                  if any(a>=x and b<=y for x,y in used):continue
+                  used.append((a,b));print('\nCTX',n,'\n',data[a:b])
+          # Search every loaded chunk for compact HTTP client patterns involving bda/search/filter.
+          pats=[
+            r'\.(get|post|put)\(([^)]{0,1200})\)',
+            r'fetch\(([^)]{0,1200})\)',
+            r'axios\([^)]{0,1200}\)',
+          ]
+          print('\nHTTP_EXPRESSIONS')
+          seen=set()
+          for name,data in blobs.items():
+              for pat in pats:
+                  for m in re.finditer(pat,data):
+                      expr=m.group(0)
+                      lo=expr.lower()
+                      if any(k in lo for k in ('bda','search','filter','shortlink','publication')):
+                          key=(name,expr[:1500])
+                          if key not in seen:seen.add(key);print(name,'::',expr[:1500])
+          # Extract relative literals likely used by SEA only.
+          print('\nSEA_ROUTE_LITERALS')
+          vals=set()
+          for name,data in blobs.items():
+              for s in re.findall(r'["\']([^"\']{1,180})["\']',data):
+                  sl=s.lower()
+                  if s.startswith('/') and any(k in sl for k in ('bda','search','filter','short','publication')):
+                      vals.add((name,s))
+          for x in sorted(vals):print(x[0],'::',x[1])
+          print('BELGIUM_SEA_HTTP_CONTRACT_PROBE_PASS',len(blobs),len(seen),len(vals))
+          PY
