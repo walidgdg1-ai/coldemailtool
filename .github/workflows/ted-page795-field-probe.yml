@@ -1,0 +1,95 @@
+name: Diagnose TED page 795 empty ITERATION response
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/ted-page795-field-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Load safe 195k checkpoint
+        run: |
+          mkdir -p checkpoint
+          gh release download tender-ted-result-auto-31657610766 --pattern 'ted-result-checkpoint.json' --dir checkpoint --clobber
+          cat checkpoint/ted-result-checkpoint.json
+      - name: Reproduce page 795 and isolate field sensitivity
+        run: |
+          python - <<'PY'
+          import json,urllib.request,urllib.error,time,pathlib
+          API='https://api.ted.europa.eu/v3/notices/search'
+          QUERY='form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC'
+          FULL=['publication-number','publication-date','notice-identifier','notice-title','form-type','notice-type','procedure-identifier','procedure-type','buyer-name','buyer-country','classification-cpv','title-proc','description-proc','estimated-value-proc','estimated-value-cur-proc','result-lot-identifier','result-value-lot','result-value-cur-lot','result-value-notice','result-value-cur-notice','tender-identifier','tender-lot-identifier','tender-value','tender-value-cur','winner-name','winner-country','winner-identifier','winner-decision-date','winner-selection-status','received-submissions-type-code','received-submissions-type-val']
+          cp=json.load(open('checkpoint/ted-result-checkpoint.json'))
+          token=cp['iteration_next_token']; page=int(cp['next_page'])
+          if page!=781 or int(cp['cumulative_archived_records'])!=195000:
+            raise RuntimeError(f'Expected safe 195k/page781 checkpoint, got {cp}')
+
+          def call(tok,fields,limit=250):
+            payload={'query':QUERY,'fields':fields,'paginationMode':'ITERATION','limit':limit,'iterationNextToken':tok}
+            req=urllib.request.Request(API,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','Accept':'application/json'},method='POST')
+            try:
+              with urllib.request.urlopen(req,timeout=90) as r:
+                obj=json.loads(r.read())
+                return {'status':r.status,'count':len(obj.get('notices') or []),'next':obj.get('iterationNextToken'),'total':obj.get('totalNoticeCount'),'notices':obj.get('notices') or [],'keys':list(obj)}
+            except urllib.error.HTTPError as e:
+              return {'status':e.code,'error':e.read().decode('utf-8','replace')[:4000],'count':None,'next':None}
+
+          trace=[]
+          # Walk pages 781-794 using the same full field set that failed in production.
+          for p in range(781,795):
+            r=call(token,FULL)
+            trace.append({'page':p,'variant':'full_walk','status':r['status'],'count':r['count'],'next_present':bool(r.get('next'))})
+            if r['count']!=250 or not r.get('next'):
+              raise RuntimeError(f'Could not reproduce safe path before 795: page={p} result={trace[-1]}')
+            token=r['next']
+          token795=token
+          variants={
+            'full':FULL,
+            'minimal':['publication-number','publication-date'],
+            'identity':['publication-number','publication-date','notice-identifier','form-type','notice-type'],
+            'procurement':FULL[:15],
+            'results': ['publication-number','publication-date']+FULL[15:],
+            'no_submission_stats':[f for f in FULL if f not in ('received-submissions-type-code','received-submissions-type-val')],
+            'no_winners':[f for f in FULL if not f.startswith('winner-')],
+            'no_values':[f for f in FULL if 'value' not in f],
+          }
+          page795={}
+          for name,fields in variants.items():
+            r=call(token795,fields)
+            sample=[]
+            for n in r.get('notices',[])[:3]:
+              sample.append({k:n.get(k) for k in ('publication-number','publication-date','notice-identifier') if k in n})
+            page795[name]={'status':r['status'],'count':r['count'],'next_present':bool(r.get('next')),'next':r.get('next'),'total':r.get('total'),'sample':sample,'error':r.get('error')}
+          # If minimal succeeds, check whether the returned cursor crosses to page796 with full fields.
+          continuation=None
+          mr=page795['minimal']
+          if mr['count']==250 and mr.get('next'):
+            rr=call(mr['next'],FULL)
+            continuation={'status':rr['status'],'count':rr['count'],'next_present':bool(rr.get('next')),'sample':[{k:n.get(k) for k in ('publication-number','publication-date') if k in n} for n in rr.get('notices',[])[:3]]}
+          out={'checkpoint':{k:cp.get(k) for k in ('next_page','cumulative_archived_records','source_total_notice_count','last_committed_shard')},'walk':trace,'page795':page795,'continuation_after_minimal':continuation}
+          pathlib.Path('ted_page795_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+      - name: Publish probe result as private issue
+        run: |
+          {
+            echo 'Temporary TED page 795 diagnostic. Safe to close after continuation repair.'
+            echo
+            echo '```json'
+            cat ted_page795_probe.json
+            echo '```'
+          } > issue.md
+          gh issue create --title "TEMP TED page 795 field probe $GITHUB_RUN_ID" --body-file issue.md
