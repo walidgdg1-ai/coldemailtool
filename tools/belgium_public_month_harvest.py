@@ -28,7 +28,7 @@ async def select_text_button(container,text:str):
     hits=[i for i,t in enumerate(texts) if t.strip()==text]
     if not hits:
         raise RuntimeError(f'visible picker button {text!r} not found; sample={texts[:30]}')
-    await buttons.nth(hits[0]).click()
+    await buttons.nth(hits[-1]).click()
 
 async def main(args):
     from playwright.async_api import async_playwright
@@ -37,8 +37,6 @@ async def main(args):
     first=date(year,month,1)
     last=date(year,month,calendar.monthrange(year,month)[1])
     expected_from=first.isoformat()
-    # Observed BOSA app payload uses an exclusive upper boundary: clicking Aug 1 + Aug 2
-    # generated publicationDateTo=Aug 3. Selecting the last civil day therefore targets next-month day 1.
     if month==12: expected_to=date(year+1,1,1).isoformat()
     else: expected_to=date(year,month+1,1).isoformat()
 
@@ -58,14 +56,12 @@ async def main(args):
         if initial.status!=200: raise RuntimeError(f'initial BDA search HTTP {initial.status}')
         await page.wait_for_timeout(1000)
 
-        # Publication date is the single public range input previously mapped by the UI probe.
         field=page.locator('input').nth(6)
         await field.click()
         dialog=page.locator('[role="dialog"]').last
         await dialog.wait_for(state='visible',timeout=10000)
         await page.wait_for_timeout(400)
 
-        # Pick year by discovering a visible 4-digit year control, then validating the year view.
         buttons=dialog.locator('button'); texts=await buttons.all_inner_texts()
         year_controls=[(i,t.strip()) for i,t in enumerate(texts) if re.fullmatch(r'20\d\d',t.strip())]
         if not year_controls: raise RuntimeError(f'year control not found: {texts[:15]}')
@@ -75,7 +71,6 @@ async def main(args):
         if str(year) not in years: raise RuntimeError(f'year {year} absent from picker')
         await select_text_button(dialog,str(year)); await page.wait_for_timeout(300)
 
-        # Pick month by opening the currently displayed month button. Validate all 12 choices.
         texts=await dialog.locator('button').all_inner_texts()
         current_months=[t.strip() for t in texts if t.strip() in MONTHS]
         if not current_months: raise RuntimeError(f'current month control absent after year selection: {texts[:15]}')
@@ -85,14 +80,12 @@ async def main(args):
         if set(MONTHS)-available: raise RuntimeError(f'month picker incomplete: {sorted(available)}')
         await select_text_button(dialog,MONTHS[month-1]); await page.wait_for_timeout(300)
 
-        # Select first and last civil day by exact visible text after validating date view year/month.
         dtexts=await dialog.locator('button').all_inner_texts()
         if MONTHS[month-1] not in [t.strip() for t in dtexts] or str(year) not in [t.strip() for t in dtexts]:
             raise RuntimeError(f'picker did not return to requested date view {args.month}: {dtexts[:15]}')
         await select_text_button(dialog,'1')
         await select_text_button(dialog,str(last.day))
 
-        # Wait specifically for the app-generated filtered request, not any concurrent stale search.
         def filtered_response(r):
             if API not in r.url.lower(): return False
             pd=r.request.post_data or ''
@@ -149,7 +142,6 @@ async def main(args):
                 await page.wait_for_timeout(args.delay_ms)
         await browser.close()
 
-    # Hard temporal QA: every persisted publication must be inside [month_start, next_month_start).
     bad_dates=[d for d in observed_dates if not (expected_from<=d<expected_to)]
     status='PASS' if rows>0 and pages>0 and not bad_dates else 'FAIL'
     manifest={
