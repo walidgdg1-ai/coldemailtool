@@ -13,10 +13,10 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 | France / BOAMP | DONE | 282,684 | 102,159 | 100,348 | `tender-normalized-france-v1` | Official BOAMP semicolon CSV + embedded JSON; missing bidder counts remain UNKNOWN |
 | Global Core v2 | DONE | **621,515** | **510,490** | **584,202** | `tender-normalized-global-core-v2` | Collision-repaired five-market relational core. 47,179 canonical buyers, 195,723 canonical suppliers; zero normalized buyer/supplier identity collisions; zero fact/FK orphans. Legacy IDs retained as lineage |
 | Market Intelligence v2 | DONE | source core 621,515 | source core 510,490 | source core 584,202 | `tender-global-market-intelligence-v2` | Derived opportunity/cohort/repeat-buyer/supplier-fragmentation layer built from Global Core v2. No FX mixing; weak bidder coverage is neutralized; all scores labeled DERIVED |
-| Germany eForms | FULL RUN ACTIVE | July smoke: 23,991 tenders | July smoke: 9,320 | July smoke: 9,035 | target `tender-normalized-germany-v1` | July smoke PASS on 27,041 XML: publication date 100%, award value 62.63%, bidder-count 82.65%, all integrity checks true. Hardened 36-month 857k-XML run `31662908379` active |
+| Germany eForms | **DONE** | **638,737** | **251,084** | **223,338** | `tender-normalized-germany-v1` | 36 official monthly exports / 857,016 XML. 425,093 buyers; 59,885 suppliers; publication dates 100%; bidder-count coverage 76.25%; all integrity gates PASS |
+| USA federal awards | **DONE** | **15,842,317 award-first reconstructed procurements** | **15,842,317** | one supplier bridge per canonical award | `tender-normalized-usa-awards-v1` | USAspending Contracts_Full. 3,166 buyers; 144,015 suppliers; award value 100%; official bidder-count coverage 24.45%; solicitation-ID coverage 11.17%; all integrity gates PASS. Explicitly award-first, not SAM opportunity notices |
 | TED official XML bulk | **DONE** | raw official notice XML archive | — | — | `tender-raw-ted-official-bulk-v1` | **45/45 official packages persisted and read back: 36 monthly Aug 2023–Jul 2026 + 9 Aug 2026 daily editions, totaling 2,566,835 XML.** Every package has SHA-256 + manifest + checkpoint. This is the authoritative TED raw lane; Search API lineage is retired |
-| TED dual-stack canonical | VALIDATING | smoke source: 356,691 XML across legacy + eForms | smoke parser extracted 223,059 award rows before canonical cursor fix | 218,664 raw supplier links before canonical cursor fix | target canonical release after smoke | Conservative dual parser handles legacy `TED_EXPORT` R2.x and eForms UBL. First smoke exposed a SQLite nested-cursor bug after successful XML extraction; runtime patch now materializes award rows before supplier lookups. Corrected smoke `31662970819` active |
-| USA federal awards | PUBLISHING RERUN ACTIVE | **15,842,317 proven canonical contracts** | **15,842,317 proven canonical awards** | one supplier bridge per canonical award where supplier available | target `tender-normalized-usa-awards-v1` | First full compute already PASS: 18,810,214 candidate transactions → 15,842,317 canonical awards/contracts; 3,166 buyers; 144,014 suppliers; award value 100%; bidder-count 24.45%; integrity 100%. It failed only on release targeting. Durable releases are pre-created on branch; rerun `31662555891` is in finalize/publication path |
+| TED dual-stack canonical | VALIDATING | smoke source: 356,691 XML across legacy + eForms | parser previously extracted 223,059 raw award rows | 218,664 raw supplier links | target `tender-normalized-ted-v1` | Legacy R2.x + eForms UBL dual parser. Cursor and canonicalization N+1 defects were removed; the remaining long-running smoke was traced to a quadratic FK QA set rebuild and fixed. Final smoke run `31664796258` is the validation gate; staged 45-package full pipeline is wired to start only after smoke SUCCESS |
 
 ## Global Core v2 integrity
 
@@ -32,6 +32,40 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 - Normalized supplier identity collision keys: 0.
 - 634 legacy bridge rows were collapsed or unidentifiable during evidence-bearing supplier re-keying; allocated award values were never summed during collapse.
 
+## Germany full warehouse
+
+- Official monthly source assets: **36**.
+- Raw XML: **857,016**.
+- Unique source notices: **844,373**.
+- Out-of-window package-boundary records: 963.
+- Modification notices excluded from primary award analytics: 30,871.
+- Canonical tenders: **638,737**.
+- Award groups: **251,084**.
+- Award↔supplier links: **223,338**.
+- Unique buyers: **425,093**.
+- Unique suppliers: **59,885**.
+- Publication-date coverage: **100%**.
+- Deadline coverage: 72.76%.
+- Estimated-value coverage: 6.24%.
+- Award-value coverage: 53.41%.
+- Official bidder-count coverage: **76.25%**.
+- Tender IDs, award IDs, bridge keys and multi-supplier value integrity: PASS.
+- Release: `tender-normalized-germany-v1`.
+
+## USA full warehouse
+
+- Candidate transactions ingested from FY2023–FY2026 official Contracts_Full archives: **18,810,001** in the successful rerun (date-window filtered during each FY ingestion).
+- Canonical federal contract awards: **15,842,317**.
+- Award-first reconstructed procurements: **15,842,317**.
+- Unique buyers: **3,166**.
+- Unique suppliers: **144,015**.
+- Award value coverage: **100%**.
+- Official `number_of_offers_received` coverage: **24.45%**.
+- Solicitation identifier coverage: **11.17%**.
+- Tender IDs unique, award IDs unique, one supplier bridge per award: PASS.
+- Historical_Tenders rows are explicitly `AWARD_FIRST_RECONSTRUCTED_FROM_USASPENDING`; they are not original SAM.gov opportunity notices.
+- Release: `tender-normalized-usa-awards-v1`.
+
 ## TED authoritative raw archive
 
 - Official package count: **45 / 45 COMPLETE**.
@@ -41,37 +75,6 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 - Final checkpoint and summary were downloaded back from the release and asserted COMPLETE.
 - Storage: `tender-raw-ted-official-bulk-v1`.
 - Archive format: monthly tar.gz packages can contain nested daily tar.gz packages; XML is counted recursively.
-
-## Germany July 2026 validation snapshot
-
-- Raw XML: 27,041.
-- Unique source notices: 25,629.
-- Out-of-window: 1,269 (monthly package boundary effect, not parse loss).
-- Contract modification notices excluded from primary awards: 710.
-- Canonical tenders: 23,991.
-- Award groups: 9,320.
-- Award↔supplier links: 9,035.
-- Unique buyers: 15,131.
-- Unique suppliers: 5,054.
-- Publication-date coverage: 100%.
-- Deadline coverage: 57.38%.
-- Estimated-value coverage: 8.25%.
-- Award-value coverage: 62.63%.
-- Official bidder-count coverage: 82.65%.
-- Tender IDs, award IDs, supplier bridge and multi-supplier value integrity: PASS.
-
-## USA full-compute proof
-
-- Candidate transactions: **18,810,214**.
-- Canonical federal contract awards: **15,842,317**.
-- Award-first reconstructed procurements: **15,842,317**.
-- Unique buyers: **3,166**.
-- Unique suppliers: **144,014**.
-- Award value coverage: **100%**.
-- Official `number_of_offers_received` coverage: **24.45%**.
-- Solicitation identifier coverage: **12.11%**.
-- Integrity gates: PASS.
-- The only failure in the first full run was GitHub release creation against `$GITHUB_SHA`; a publication probe proved branch-target releases work, so durable USA/Germany releases were pre-created and the current reruns use them.
 
 ## Canonical guardrails
 
@@ -84,11 +87,13 @@ This file is the human-readable source of truth for bulk procurement warehouses 
 7. Retired TED Search-API shards are historical lineage only. The authoritative TED raw archive is direct official bulk packages.
 8. Cross-country monetary analytics preserve source currency unless an explicit sourced FX layer is added.
 9. Official package boundary spillover is filtered at canonical normalization time rather than deleting raw source records.
-10. TED legacy procurement linkage requires buyer identity + reference number when available; otherwise notice grain is retained rather than fuzzy-merging unrelated procedures. eForms linkage uses `ContractFolderID` when published.
+10. TED legacy procurement linkage requires buyer identity + reference number when available; otherwise package-namespaced notice grain is retained rather than fuzzy-merging unrelated procedures. eForms linkage uses `ContractFolderID` when published.
+11. Award-first reconstructed datasets (USAspending) remain analytically tagged and separable from original opportunity-notice datasets in every cross-market core.
 
 ## Current execution queue
 
-1. Finish corrected TED dual-stack smoke; if PASS, launch staged full normalization across all 2,566,835 official XML records.
-2. Finish/publish hardened full Germany 36-month warehouse.
-3. Finish/publish USA 15.84M award-grain warehouse using already-proven finalizer and durable releases.
-4. Build the next Global Core revision incorporating independently validated Germany/USA, while TED canonicalization proceeds as its own staged lane.
+1. Pass final linear-time TED dual-stack smoke; automatic 45-package staged canonicalization begins only on SUCCESS.
+2. Finalize the staged TED packages into `tender-normalized-ted-v1` and enforce global cross-package identity/FK gates.
+3. Build Global Core v3 from Global Core v2 + Germany, with USA included as a separately tagged award-first analytical lane rather than mixed blindly with notice-first procurement counts.
+4. Build Market Intelligence v3 using validated Germany/USA evidence, preserving source currencies and notice-vs-award-first distinctions.
+5. After TED canonical is independently validated, build the next Core revision incorporating TED without weakening v3 identity or evidence-type guards.
