@@ -1,0 +1,29 @@
+name: Inspect USA tender archive manifest
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/usa-manifest-probe.yml']
+  workflow_dispatch:
+permissions: {contents: write}
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read representative USA manifest
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          mkdir -p probe
+          gh release download tender-raw-usa_2026_07-v1 --pattern '_manifest.jsonl' --dir probe --clobber
+          cat probe/_manifest.jsonl
+          mkdir -p tender_pipeline
+          cp probe/_manifest.jsonl tender_pipeline/usa_2026_07_manifest_probe.jsonl
+      - name: Commit manifest probe
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/usa_2026_07_manifest_probe.jsonl
+          git commit -m 'Record USA July archive manifest probe' || exit 0
+          git pull --rebase origin tender-harvest-relay-20260812
+          git push origin HEAD:tender-harvest-relay-20260812
