@@ -1,0 +1,69 @@
+name: Inspect Germany eForms XML shapes
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/germany-xml-shape-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download representative Germany export
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p raw/germany
+          gh release download tender-raw-germany-v1 --pattern 'germany_2026-07.zip' --dir raw/germany --clobber
+      - name: Build compact XML shape inventory
+        run: |
+          python - <<'PY'
+          import collections,json,re,zipfile
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          def local(tag): return tag.split('}',1)[-1]
+          target={'ID','IssueDate','IssueTime','NoticeTypeCode','ContractFolderID','ProcedureCode','Name','Description','PartyName','EndpointID','CompanyID','RegistrationName','TenderResult','ReceivedTenderQuantity','AwardDate','ResultCode','PayableAmount','TaxExclusiveAmount','ValueAmount','LowerBoundValue','HigherBoundValue','ProcurementProject','ProcurementProjectLot','TenderingProcess','TenderSubmissionDeadlinePeriod','EndDate','EndTime','MainCommodityClassification','ItemClassificationCode','WinningParty','ContractingParty','Party','LotResult','TenderLot','TenderingParty','Tenderer'}
+          zpath=next(Path('raw/germany').glob('*.zip'))
+          roots=collections.defaultdict(list); tag_counts=collections.Counter(); path_hits=collections.defaultdict(collections.Counter)
+          with zipfile.ZipFile(zpath) as z:
+            for n in z.namelist():
+              if not n.lower().endswith('.xml'): continue
+              try:
+                b=z.read(n); root=ET.fromstring(b)
+              except Exception: continue
+              rlocal=local(root.tag)
+              for e in root.iter(): tag_counts[local(e.tag)]+=1
+              if len(roots[rlocal])<3:
+                samples=[]
+                def rec(e,path):
+                  lp=path+[local(e.tag)]
+                  if local(e.tag) in target:
+                    val=(e.text or '').strip()
+                    attrs={local(k):v for k,v in e.attrib.items()}
+                    samples.append({'path':'/'.join(lp),'tag':local(e.tag),'text':val[:600],'attrs':attrs})
+                    path_hits[local(e.tag)]['/'.join(lp)]+=1
+                  for c in list(e): rec(c,lp)
+                rec(root,[])
+                roots[rlocal].append({'name':n,'root':root.tag,'hits':samples[:1000],'xml_prefix':re.sub(r'\s+',' ',b[:20000].decode('utf-8','replace'))[:8000]})
+              if all(len(roots[k])>=3 for k in ('ContractNotice','ContractAwardNotice','PriorInformationNotice')):
+                break
+          out={'archive':zpath.name,'root_samples':roots,'top_local_tags':tag_counts.most_common(300),'target_paths':{k:v.most_common(50) for k,v in path_hits.items()}}
+          Path('tender_pipeline').mkdir(exist_ok=True)
+          Path('tender_pipeline/germany_xml_shape_inventory.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'roots':{k:len(v) for k,v in roots.items()},'top_tags':tag_counts.most_common(50)},ensure_ascii=False,indent=2))
+          PY
+      - name: Commit inventory
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/germany_xml_shape_inventory.json
+          git commit -m 'Record Germany eForms XML shape inventory'
+          git pull --rebase origin tender-harvest-relay-20260812
+          git push origin HEAD:tender-harvest-relay-20260812
