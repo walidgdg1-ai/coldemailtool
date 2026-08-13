@@ -1,0 +1,210 @@
+name: Repair Global Core entity identities v2
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-repair-global-core-entities-v2.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-global-core-v2
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download Global Core v1 fact tables
+        run: |
+          set -euo pipefail
+          mkdir -p v1 v2
+          for a in historical_tenders.parquet awards.parquet award_suppliers.parquet; do
+            gh release download tender-normalized-global-core-v1 --pattern "$a" --dir v1 --clobber
+          done
+
+      - name: Re-key buyers and suppliers from evidence-bearing names
+        run: |
+          python - <<'PY'
+          import duckdb,json,hashlib
+          from pathlib import Path
+          from datetime import datetime,timezone
+          con=duckdb.connect()
+          con.execute("SET preserve_insertion_order=false")
+          con.execute("SET threads=2")
+          con.execute("SET memory_limit='6GB'")
+          con.execute("SET temp_directory='v2/ducktmp'")
+          con.execute("SET max_temp_directory_size='8GB'")
+          out=Path('v2')
+          t='v1/historical_tenders.parquet'; a='v1/awards.parquet'; b='v1/award_suppliers.parquet'
+
+          def norm_expr(col):
+              return f"lower(trim(regexp_replace(strip_accents(coalesce({col},'')), '[^A-Za-z0-9]+', ' ', 'g')))"
+          buyer_norm=norm_expr('Buyer_Name')
+          supplier_norm=norm_expr('Supplier_Name')
+          buyer_id=f"CASE WHEN nullif({buyer_norm},'') IS NULL THEN NULL ELSE 'buy_'||substr(sha256(Warehouse_Source||'|'||{buyer_norm}),1,20) END"
+          supplier_id=f"CASE WHEN nullif({supplier_norm},'') IS NULL THEN NULL ELSE 'sup_'||substr(sha256(Warehouse_Source||'|'||{supplier_norm}||'|'||upper(coalesce(nullif(Supplier_Country,''),'UNKNOWN'))),1,20) END"
+
+          # Tender facts: preserve every row and old ID for lineage, replace canonical Buyer_ID.
+          con.execute(f"""COPY (
+            SELECT * EXCLUDE(Buyer_ID),
+                   Buyer_ID AS Source_Buyer_ID,
+                   {buyer_id} AS Buyer_ID
+            FROM read_parquet('{t}')
+          ) TO 'v2/historical_tenders.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
+
+          # Awards inherit the buyer from their canonical tender relationship rather than trusting
+          # historically collided award.Buyer_ID. Supplier IDs are rebuilt only when a supplier name is present.
+          award_supplier_norm=norm_expr('aa.Supplier_Name')
+          award_supplier_id=f"CASE WHEN nullif({award_supplier_norm},'') IS NULL THEN NULL ELSE 'sup_'||substr(sha256(aa.Warehouse_Source||'|'||{award_supplier_norm}||'|'||upper(coalesce(nullif(aa.Supplier_Country,''),'UNKNOWN'))),1,20) END"
+          con.execute(f"""COPY (
+            SELECT aa.* EXCLUDE(Buyer_ID,Supplier_ID),
+                   aa.Buyer_ID AS Source_Buyer_ID,
+                   aa.Supplier_ID AS Source_Supplier_ID,
+                   tt.Buyer_ID AS Buyer_ID,
+                   {award_supplier_id} AS Supplier_ID
+            FROM read_parquet('{a}') aa
+            LEFT JOIN read_parquet('v2/historical_tenders.parquet') tt
+              ON aa.Warehouse_Source=tt.Warehouse_Source
+             AND aa.Historical_Tender_ID=tt.Historical_Tender_ID
+          ) TO 'v2/awards.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
+
+          # Supplier bridge is the authoritative supplier membership grain. Re-key and collapse only
+          # exact same award+new supplier identity duplicates; never sum duplicated allocations.
+          bridge_supplier_norm=norm_expr('Supplier_Name')
+          bridge_supplier_id=f"CASE WHEN nullif({bridge_supplier_norm},'') IS NULL THEN NULL ELSE 'sup_'||substr(sha256(Warehouse_Source||'|'||{bridge_supplier_norm}||'|'||upper(coalesce(nullif(Supplier_Country,''),'UNKNOWN'))),1,20) END"
+          con.execute(f"""COPY (
+            WITH r AS (
+              SELECT *, Supplier_ID AS Source_Supplier_ID, {bridge_supplier_id} AS New_Supplier_ID
+              FROM read_parquet('{b}')
+            )
+            SELECT Warehouse_Source,Award_ID,
+                   New_Supplier_ID AS Supplier_ID,
+                   any_value(Source_Supplier_ID) AS Source_Supplier_ID,
+                   any_value(Supplier_Name) AS Supplier_Name,
+                   any_value(Relationship) AS Relationship,
+                   max(try_cast(nullif(Award_Value_Allocated,'') AS DOUBLE)) AS Award_Value_Allocated,
+                   any_value(Supplier_Country) AS Supplier_Country,
+                   any_value(SME_Status) AS SME_Status
+            FROM r
+            WHERE New_Supplier_ID IS NOT NULL
+            GROUP BY Warehouse_Source,Award_ID,New_Supplier_ID
+          ) TO 'v2/award_suppliers.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
+
+          # Rebuild buyers exclusively from repaired tender/award facts.
+          con.execute("""COPY (
+            WITH tc AS (
+              SELECT Warehouse_Source,Buyer_ID,
+                     arg_max(Buyer_Name,length(coalesce(Buyer_Name,''))) AS Buyer_Name,
+                     count(*) AS Observed_Tenders,
+                     any_value(Country) AS Country
+              FROM read_parquet('v2/historical_tenders.parquet')
+              WHERE Buyer_ID IS NOT NULL
+              GROUP BY 1,2
+            ), ac AS (
+              SELECT Warehouse_Source,Buyer_ID,
+                     count(distinct Award_ID) AS Observed_Awards,
+                     sum(try_cast(nullif(Award_Value,'') AS DOUBLE)) AS Observed_Award_Value_Total,
+                     median(try_cast(nullif(Award_Value,'') AS DOUBLE)) AS Median_Award_Value,
+                     median(try_cast(nullif(Bidder_Count,'') AS DOUBLE)) AS Median_Bidder_Count
+              FROM read_parquet('v2/awards.parquet')
+              WHERE Buyer_ID IS NOT NULL
+              GROUP BY 1,2
+            )
+            SELECT tc.Warehouse_Source,tc.Buyer_ID,tc.Buyer_Name,
+                   lower(trim(regexp_replace(strip_accents(coalesce(tc.Buyer_Name,'')), '[^A-Za-z0-9]+', ' ', 'g'))) AS Normalized_Name,
+                   tc.Country,'UNKNOWN' AS Buyer_Type,NULL AS Primary_Procurement_Portal,
+                   tc.Observed_Tenders,coalesce(ac.Observed_Awards,0) AS Observed_Awards,
+                   ac.Observed_Award_Value_Total,ac.Median_Award_Value,ac.Median_Bidder_Count,
+                   now()::VARCHAR AS Last_Updated_At
+            FROM tc LEFT JOIN ac USING(Warehouse_Source,Buyer_ID)
+          ) TO 'v2/buyers.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
+
+          # Rebuild suppliers from repaired bridge membership. Monetary totals use only allocated
+          # values; group totals are not duplicated across consortium members.
+          con.execute("""COPY (
+            WITH s AS (
+              SELECT Warehouse_Source,Supplier_ID,
+                     arg_max(Supplier_Name,length(coalesce(Supplier_Name,''))) AS Supplier_Name,
+                     any_value(Supplier_Country) AS Supplier_Country,
+                     count(distinct Award_ID) AS Observed_Contracts_Won,
+                     sum(try_cast(Award_Value_Allocated AS DOUBLE)) AS Observed_Award_Value_Total,
+                     median(try_cast(Award_Value_Allocated AS DOUBLE)) AS Median_Award_Value
+              FROM read_parquet('v2/award_suppliers.parquet')
+              GROUP BY 1,2
+            )
+            SELECT Warehouse_Source,Supplier_ID,Supplier_Name,
+                   lower(trim(regexp_replace(strip_accents(coalesce(Supplier_Name,'')), '[^A-Za-z0-9]+', ' ', 'g'))) AS Normalized_Name,
+                   Supplier_Country AS Country,Supplier_Country,
+                   Observed_Contracts_Won,Observed_Award_Value_Total,Median_Award_Value,
+                   CASE WHEN Observed_Contracts_Won>1 THEN 'YES' ELSE 'NO' END AS Repeat_Wins,
+                   now()::VARCHAR AS Last_Updated_At
+            FROM s
+          ) TO 'v2/suppliers.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
+
+          # Export portable gzip CSV companions.
+          for name in ['historical_tenders','awards','award_suppliers','buyers','suppliers']:
+              con.execute(f"COPY (SELECT * FROM read_parquet('v2/{name}.parquet')) TO 'v2/{name}.csv.gz' (HEADER,COMPRESSION GZIP)")
+
+          # Strong integrity / preservation gates.
+          q={}
+          q['tenders']=con.execute("SELECT count(*) FROM read_parquet('v2/historical_tenders.parquet')").fetchone()[0]
+          q['awards']=con.execute("SELECT count(*) FROM read_parquet('v2/awards.parquet')").fetchone()[0]
+          q['award_supplier_links']=con.execute("SELECT count(*) FROM read_parquet('v2/award_suppliers.parquet')").fetchone()[0]
+          q['buyers']=con.execute("SELECT count(*) FROM read_parquet('v2/buyers.parquet')").fetchone()[0]
+          q['suppliers']=con.execute("SELECT count(*) FROM read_parquet('v2/suppliers.parquet')").fetchone()[0]
+          q['buyer_source_keys_unique']=con.execute("SELECT count(*)=count(distinct Warehouse_Source||'|'||Buyer_ID) FROM read_parquet('v2/buyers.parquet')").fetchone()[0]
+          q['supplier_source_keys_unique']=con.execute("SELECT count(*)=count(distinct Warehouse_Source||'|'||Supplier_ID) FROM read_parquet('v2/suppliers.parquet')").fetchone()[0]
+          q['tender_ids_unique']=con.execute("SELECT count(*)=count(distinct Historical_Tender_ID) FROM read_parquet('v2/historical_tenders.parquet')").fetchone()[0]
+          q['award_ids_unique']=con.execute("SELECT count(*)=count(distinct Award_ID) FROM read_parquet('v2/awards.parquet')").fetchone()[0]
+          q['award_supplier_keys_unique']=con.execute("SELECT count(*)=count(distinct Warehouse_Source||'|'||Award_ID||'|'||Supplier_ID) FROM read_parquet('v2/award_suppliers.parquet')").fetchone()[0]
+          q['award_tender_orphans']=con.execute("SELECT count(*) FROM read_parquet('v2/awards.parquet') a LEFT JOIN read_parquet('v2/historical_tenders.parquet') t USING(Warehouse_Source,Historical_Tender_ID) WHERE t.Historical_Tender_ID IS NULL").fetchone()[0]
+          q['award_buyer_fk_orphans']=con.execute("SELECT count(*) FROM read_parquet('v2/awards.parquet') a LEFT JOIN read_parquet('v2/buyers.parquet') x USING(Warehouse_Source,Buyer_ID) WHERE a.Buyer_ID IS NOT NULL AND x.Buyer_ID IS NULL").fetchone()[0]
+          q['bridge_supplier_fk_orphans']=con.execute("SELECT count(*) FROM read_parquet('v2/award_suppliers.parquet') b LEFT JOIN read_parquet('v2/suppliers.parquet') s USING(Warehouse_Source,Supplier_ID) WHERE s.Supplier_ID IS NULL").fetchone()[0]
+          q['source_buyer_collision_keys_v2']=con.execute("SELECT count(*) FROM (SELECT Warehouse_Source,Buyer_ID,count(distinct Buyer_Name) n FROM read_parquet('v2/historical_tenders.parquet') WHERE Buyer_ID IS NOT NULL GROUP BY 1,2 HAVING n>1)").fetchone()[0]
+          q['source_supplier_collision_keys_v2']=con.execute("SELECT count(*) FROM (SELECT Warehouse_Source,Supplier_ID,count(distinct Supplier_Name) n FROM read_parquet('v2/award_suppliers.parquet') GROUP BY 1,2 HAVING n>1)").fetchone()[0]
+          q['legacy_bridge_rows']=con.execute(f"SELECT count(*) FROM read_parquet('{b}')").fetchone()[0]
+          q['bridge_rows_collapsed_as_same_new_identity']=q['legacy_bridge_rows']-q['award_supplier_links']
+          q['status']='PASS' if (
+              q['tenders']==621515 and q['awards']==510490 and
+              q['buyer_source_keys_unique'] and q['supplier_source_keys_unique'] and
+              q['tender_ids_unique'] and q['award_ids_unique'] and q['award_supplier_keys_unique'] and
+              q['award_tender_orphans']==0 and q['award_buyer_fk_orphans']==0 and q['bridge_supplier_fk_orphans']==0 and
+              q['source_buyer_collision_keys_v2']==0 and q['source_supplier_collision_keys_v2']==0
+          ) else 'FAIL'
+          quality={'version':'GLOBAL_CORE_V2_ENTITY_REKEY','created_at':datetime.now(timezone.utc).isoformat(),'source_release':'tender-normalized-global-core-v1','identity_method':'SHA256(source|normalized_name) for buyers; SHA256(source|normalized_name|country) for suppliers','legacy_ids_preserved_as_lineage_columns':True,'counts_and_integrity':q,'notes':['Facts are row-preserved for tenders and awards.','Supplier bridge may collapse multiple legacy IDs that resolve to the same evidence-bearing supplier identity on the same award.','Allocated award values are never summed during duplicate bridge collapse.'],'status':q['status']}
+          (out/'data_quality.json').write_text(json.dumps(quality,indent=2),encoding='utf-8')
+          manifest={'version':quality['version'],'created_at':quality['created_at'],'files':{}}
+          for p in out.iterdir():
+              if p.is_file() and p.name!='run_manifest.json':
+                  with p.open('rb') as f:
+                      h=hashlib.sha256()
+                      for chunk in iter(lambda:f.read(1024*1024),b''):h.update(chunk)
+                  manifest['files'][p.name]={'bytes':p.stat().st_size,'sha256':h.hexdigest()}
+          (out/'run_manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+          print(json.dumps(quality,indent=2))
+          if quality['status']!='PASS': raise SystemExit(2)
+          PY
+
+      - name: Publish repaired Global Core v2
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-global-core-v2'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — Global Core v2' \
+              --notes 'Collision-repaired five-market Global Core. Buyer and supplier IDs are rebuilt from evidence-bearing names, propagated through tender/award/bridge facts, and legacy IDs are retained only as lineage columns. Strong FK and collision gates must pass before publication.' \
+              --target "$GITHUB_SHA"
+          fi
+          find v2 -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
