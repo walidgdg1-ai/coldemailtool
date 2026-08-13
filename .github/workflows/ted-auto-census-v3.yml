@@ -1,0 +1,87 @@
+name: Adaptive TED RESULT census loop v3
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/ted-auto-census-v3.yml'
+      - 'tools/ted_auto_census.py'
+  workflow_dispatch:
+    inputs:
+      checkpoint_release:
+        description: 'Release containing ted-result-checkpoint.json'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: tender-ted-result-auto-v3
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Resolve and download prior checkpoint
+        id: seed
+        shell: bash
+        run: |
+          set -euo pipefail
+          SEED='${{ inputs.checkpoint_release }}'
+          if [ -z "$SEED" ]; then SEED='tender-ted-result-auto-31657610766'; fi
+          echo "release=$SEED" >> "$GITHUB_OUTPUT"
+          mkdir -p checkpoint
+          gh release download "$SEED" --pattern 'ted-result-checkpoint.json' --dir checkpoint --clobber
+          echo "Seed: $SEED"
+          cat checkpoint/ted-result-checkpoint.json
+
+      - name: Create this continuation release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="tender-ted-result-adaptive-${GITHUB_RUN_ID}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          gh release create "$TAG" \
+            --title "TED RESULT adaptive census ${GITHUB_RUN_ID}" \
+            --notes "Adaptive timeout-resilient TED Search API ITERATION continuation. Dynamically downshifts page size when TED returns timedOut=true; identity-preserving minimal fallback is explicitly flagged if a single notice cannot be fully materialized." \
+            --target "$GITHUB_SHA"
+
+      - name: Harvest next up-to-50k records
+        run: |
+          python tools/ted_auto_census.py \
+            --checkpoint checkpoint/ted-result-checkpoint.json \
+            --out ted_auto_v3 \
+            --release-tag '${{ steps.release.outputs.tag }}' \
+            --max-records 50000
+
+      - name: Read back checkpoint and chain next block
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='${{ steps.release.outputs.tag }}'
+          mkdir -p readback
+          gh release download "$TAG" --pattern 'ted-result-checkpoint.json' --dir readback --clobber
+          STATUS=$(python -c "import json;print(json.load(open('readback/ted-result-checkpoint.json'))['status'])")
+          COUNT=$(python -c "import json;print(json.load(open('readback/ted-result-checkpoint.json'))['cumulative_archived_records'])")
+          TOTAL=$(python -c "import json;print(json.load(open('readback/ted-result-checkpoint.json'))['source_total_notice_count'])")
+          DEGRADED=$(python -c "import json;print(json.load(open('readback/ted-result-checkpoint.json')).get('minimal_fallback_records_in_block',0))")
+          echo "TED adaptive checkpoint: $COUNT / $TOTAL | $STATUS | minimal-fallback=$DEGRADED"
+          if [ "$STATUS" = 'READY_TO_CONTINUE' ]; then
+            gh workflow run ted-auto-census-v3.yml \
+              --ref tender-harvest-relay-20260812 \
+              -f checkpoint_release="$TAG"
+          elif [ "$STATUS" != 'CENSUS_COMPLETE' ]; then
+            echo "Unexpected checkpoint status: $STATUS" >&2
+            exit 1
+          fi
