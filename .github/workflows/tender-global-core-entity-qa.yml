@@ -24,7 +24,7 @@ jobs:
         run: |
           mkdir -p qa
           gh release download tender-normalized-global-core-v1 --pattern 'buyers.parquet' --pattern 'suppliers.parquet' --dir qa --clobber
-      - name: Audit duplicate entity keys and exact-row duplication
+      - name: Audit duplicate entity keys, schemas and conflict samples
         run: |
           python - <<'PY'
           import duckdb,json
@@ -34,16 +34,21 @@ jobs:
           def qi(s): return '"'+s.replace('"','""')+'"'
           for name,key in [('buyers','Buyer_ID'),('suppliers','Supplier_ID')]:
               p=f'qa/{name}.parquet'
+              schema=[{'name':r[0],'type':r[1]} for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{p}')").fetchall()]
+              cols=[x['name'] for x in schema]
               total,distinct_keys=con.execute(f"SELECT count(*),count(distinct Warehouse_Source||'|'||{key}) FROM read_parquet('{p}')").fetchone()
               dup_keys,dup_rows=con.execute(f"SELECT count(*),coalesce(sum(n-1),0) FROM (SELECT Warehouse_Source,{key},count(*) n FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1)").fetchone()
               distinct_rows=con.execute(f"SELECT count(*) FROM (SELECT DISTINCT * FROM read_parquet('{p}'))").fetchone()[0]
-              cols=[r[0] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{p}')").fetchall()]
               row_expr="md5(concat_ws(chr(31),"+','.join(f"coalesce(cast({qi(c)} as varchar),'∅')" for c in cols)+"))"
               conflict_keys=con.execute(f"SELECT count(*) FROM (SELECT Warehouse_Source,{key},count(*) n,count(distinct {row_expr}) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 AND count(distinct {row_expr})>1)").fetchone()[0]
-              top=con.execute(f"SELECT Warehouse_Source,{key},count(*) n,count(distinct {row_expr}) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 ORDER BY n DESC LIMIT 20").fetchall()
-              result[name]={'rows':total,'source_entity_keys':distinct_keys,'duplicate_keys':dup_keys,'extra_rows_from_duplicate_keys':int(dup_rows),'distinct_full_rows':distinct_rows,'conflicting_duplicate_keys':conflict_keys,'top_duplicate_keys':[list(x) for x in top]}
-          Path('qa/entity_duplicate_audit.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
-          print(json.dumps(result,indent=2))
+              top=con.execute(f"SELECT Warehouse_Source,{key},count(*) n,count(distinct {row_expr}) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 ORDER BY n DESC LIMIT 10").fetchall()
+              samples=[]
+              for src,eid,n,versions in top[:3]:
+                  rows=con.execute(f"SELECT * FROM read_parquet('{p}') WHERE Warehouse_Source=? AND {key}=? LIMIT 5",[src,eid]).fetchdf().fillna('').to_dict('records')
+                  samples.append({'Warehouse_Source':src,key:eid,'count':n,'versions':versions,'rows':rows})
+              result[name]={'schema':schema,'rows':total,'source_entity_keys':distinct_keys,'duplicate_keys':dup_keys,'extra_rows_from_duplicate_keys':int(dup_rows),'distinct_full_rows':distinct_rows,'conflicting_duplicate_keys':conflict_keys,'top_duplicate_keys':[list(x) for x in top],'conflict_samples':samples}
+          Path('qa/entity_duplicate_audit.json').write_text(json.dumps(result,indent=2,default=str),encoding='utf-8')
+          print(json.dumps(result,indent=2,default=str))
           PY
       - name: Persist audit
         run: |
