@@ -1,0 +1,61 @@
+name: Probe USAspending Contracts Full schema
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/usa-contracts-schema-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download official FY2026 Contracts Full archive
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          mkdir -p raw/usa
+          gh release download tender-raw-usa-fy2026-v1 --pattern '*.zip' --dir raw/usa --clobber
+          ls -lh raw/usa
+      - name: Inspect ZIP members and CSV headers without extraction
+        run: |
+          python - <<'PY'
+          import csv,io,json,zipfile
+          from pathlib import Path
+          zpath=next(Path('raw/usa').glob('*.zip'))
+          out={'archive':zpath.name,'bytes':zpath.stat().st_size,'members':[]}
+          with zipfile.ZipFile(zpath) as z:
+            for info in z.infolist():
+              if info.is_dir():continue
+              item={'name':info.filename,'compressed_bytes':info.compress_size,'uncompressed_bytes':info.file_size}
+              if info.filename.lower().endswith('.csv'):
+                with z.open(info) as bf:
+                  tf=io.TextIOWrapper(bf,encoding='utf-8-sig',errors='replace',newline='')
+                  r=csv.reader(tf)
+                  try: header=next(r)
+                  except StopIteration: header=[]
+                  rows=[]
+                  for _ in range(2):
+                    try:rows.append(next(r))
+                    except StopIteration:break
+                item['column_count']=len(header)
+                item['header']=header
+                item['sample_rows']=[dict(zip(header,row)) for row in rows]
+              out['members'].append(item)
+          Path('usa_contracts_schema_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out,ensure_ascii=False,indent=2)[:100000])
+          PY
+      - name: Publish temporary private schema issue
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          {
+            echo 'Temporary USAspending Contracts_Full schema probe. Safe to close after parser construction.'
+            echo
+            echo '```json'
+            cat usa_contracts_schema_probe.json
+            echo '```'
+          } > issue_body.md
+          gh issue create --title "TEMP USAspending Contracts Full schema $GITHUB_RUN_ID" --body-file issue_body.md
