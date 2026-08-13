@@ -65,9 +65,11 @@ jobs:
                       out['samples'].append({'name':n,'ext':e,'text_prefix':b[:4000].decode('utf-8','replace')})
           out['extensions']=dict(ext); out['top_paths']=dict(top); out['xml_roots']=dict(roots); out['namespaces']=dict(ns)
           Path('germany_schema_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps({k:v for k,v in out.items() if k!='samples'},ensure_ascii=False,indent=2))
+          compact={k:v for k,v in out.items() if k!='samples'}
+          Path('germany_schema_probe_summary.json').write_text(json.dumps(compact,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(compact,ensure_ascii=False,indent=2))
           PY
-      - name: Persist probe
+      - name: Persist probe release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -75,5 +77,15 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title 'Germany tender schema probe v1' --notes 'Representative schema probe from official German monthly export.' --target "$GITHUB_SHA"
           fi
-          gh release upload "$TAG" germany_schema_probe.json --clobber
+          gh release upload "$TAG" germany_schema_probe.json germany_schema_probe_summary.json --clobber
           gh release view "$TAG" --json tagName,url,assets
+      - name: Commit compact probe summary to branch
+        run: |
+          mkdir -p tender_pipeline
+          cp germany_schema_probe_summary.json tender_pipeline/germany_schema_probe_summary.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/germany_schema_probe_summary.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record Germany schema probe summary'
+          git push origin HEAD:tender-harvest-relay-20260812
