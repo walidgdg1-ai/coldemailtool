@@ -20,7 +20,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Read public search-filter labels only
+      - name: Map publication-date inputs with public Playwright locators
         run: |
           python - <<'PY'
           import asyncio,json
@@ -34,14 +34,27 @@ jobs:
                 await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
               first=await first_info.value
               assert first.status==200,first.status
-              await page.wait_for_timeout(2500)
-              print('LABELS',json.dumps(await page.locator('label').all_inner_texts(),ensure_ascii=False))
-              rows=[]
-              for i in range(await page.locator('input').count()):
-                x=page.locator('input').nth(i)
-                rows.append({'i':i,'type':await x.get_attribute('type'),'aria':await x.get_attribute('aria-label'),'placeholder':await x.get_attribute('placeholder')})
-              print('INPUTS',json.dumps(rows,ensure_ascii=False))
-              print('BUTTONS',json.dumps(await page.locator('button').all_inner_texts(),ensure_ascii=False))
+              await page.wait_for_timeout(2000)
+              all_inputs=page.locator('input')
+              label=page.get_by_text('Publication date',exact=True).first
+              assert await label.count(), 'Publication date text not found'
+              found=[]
+              parent=label
+              for depth in range(1,6):
+                parent=parent.locator('..')
+                local=parent.locator('input')
+                if await local.count():
+                  for j in range(await local.count()):
+                    target=local.nth(j)
+                    index=-1
+                    tid=await target.get_attribute('id')
+                    for k in range(await all_inputs.count()):
+                      if tid and await all_inputs.nth(k).get_attribute('id')==tid:
+                        index=k;break
+                    found.append({'depth':depth,'index':index,'id':tid,'type':await target.get_attribute('type'),'placeholder':await target.get_attribute('placeholder'),'aria':await target.get_attribute('aria-label')})
+                  break
+              print('PUBLICATION_DATE_INPUTS',json.dumps(found,ensure_ascii=False))
+              assert found,found
               await browser.close()
           asyncio.run(main())
           PY
