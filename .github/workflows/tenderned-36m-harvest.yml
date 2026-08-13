@@ -1,0 +1,124 @@
+name: Harvest and normalize TenderNed recent history
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tenderned-36m-harvest.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tenderned-recent-history
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Prepare authoritative raw release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-raw-tenderned-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'TenderNed official public datasets — recent history v1' \
+              --notes 'Direct public JSON datasets published by TenderNed. Source files cover 2023, 2024, 2025 and 2026 H1; canonical window filters 2023-08-01 through 2026-07-01 exclusive. Raw source assets are retained unchanged with SHA-256 manifest.' \
+              --target tender-harvest-relay-20260812
+          fi
+
+      - name: Download or read back official source JSON files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p raw
+          cat > sources.tsv <<'EOF'
+          tenderned-2023.json	https://www.tenderned.nl/cms/sites/default/files/2024-01/Dataset_Tenderned-2023.json
+          tenderned-2024.json	https://www.tenderned.nl/cms/sites/default/files/2025-01/Dataset_Tenderned-2024.json
+          tenderned-2025.json	https://www.tenderned.nl/cms/sites/default/files/2026-01/Dataset_Tenderned-2025.json
+          tenderned-2026-h1.json	https://www.tenderned.nl/cms/sites/default/files/2026-07/Dataset_Tenderned-2026-01-01-2026-06-30.json
+          EOF
+          while IFS=$'\t' read -r NAME URL; do
+            if gh release view tender-raw-tenderned-v1 --json assets --jq '.assets[].name' | grep -Fxq "$NAME"; then
+              echo "TENDERNED_READBACK $NAME"
+              gh release download tender-raw-tenderned-v1 --pattern "$NAME" --dir raw --clobber
+            else
+              echo "TENDERNED_DOWNLOAD $NAME"
+              curl -fL --retry 6 --retry-all-errors --connect-timeout 30 "$URL" -o "raw/$NAME"
+              python - <<PY
+          import json
+          p='raw/$NAME';x=json.load(open(p,encoding='utf-8-sig'));assert isinstance(x,dict) and isinstance(x.get('releases'),list) and len(x['releases'])>100
+          print('SOURCE_JSON_PASS',p,len(x['releases']))
+          PY
+              gh release upload tender-raw-tenderned-v1 "raw/$NAME" --clobber
+            fi
+          done < sources.tsv
+
+      - name: Build and persist raw manifest
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json,datetime
+          m={'version':'TENDERNED_RAW_V1','created_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sources':{}}
+          for p in sorted(Path('raw').glob('*.json')):
+              h=hashlib.sha256()
+              with p.open('rb') as f:
+                  for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
+              x=json.load(open(p,encoding='utf-8-sig'))
+              m['sources'][p.name]={'bytes':p.stat().st_size,'sha256':h.hexdigest(),'release_count':len(x.get('releases') or [])}
+          Path('raw_manifest.json').write_text(json.dumps(m,indent=2),encoding='utf-8')
+          print(json.dumps(m,indent=2))
+          PY
+          gh release upload tender-raw-tenderned-v1 raw_manifest.json --clobber
+
+      - name: Normalize notice-first warehouse
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARGS=()
+          for f in raw/tenderned-*.json; do ARGS+=(--input "$f"); done
+          python tools/tenderned_normalize.py "${ARGS[@]}" \
+            --start 2023-08-01 --end 2026-07-01 --out normalized
+          cat normalized/data_quality.json
+
+      - name: Validate canonical TenderNed warehouse
+        run: |
+          python - <<'PY'
+          import json
+          q=json.load(open('normalized/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_releases_in_window']>20000,q
+          assert q['canonical_tenders']>10000,q
+          assert all(q['integrity'].values()),q['integrity']
+          print('TENDERNED_CANONICAL_PASS',q['source_releases_in_window'],q['canonical_tenders'],q['canonical_awards'],q['bidder_count_coverage_pct'])
+          PY
+
+      - name: Publish and read back canonical warehouse
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-tenderned-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'TenderNed canonical recent-history warehouse v1' \
+              --notes 'Official TenderNed public OCDS-style datasets normalized conservatively at official OCID procurement grain where available. 2023-08-01 through 2026-07-01 exclusive. National/TED overlap remains source-aware and is not fuzzy-collapsed.' \
+              --target tender-harvest-relay-20260812
+          fi
+          find normalized -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do
+            test $(stat -c%s "$f") -lt 1900000000
+            gh release upload "$TAG" "$f" --clobber
+          done
+          rm -rf rb && mkdir rb
+          gh release download "$TAG" --pattern data_quality.json --dir rb --clobber
+          diff -u normalized/data_quality.json rb/data_quality.json
+          echo 'TENDERNED_RELEASE_READBACK_PASS'
