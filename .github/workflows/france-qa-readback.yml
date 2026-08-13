@@ -1,0 +1,30 @@
+name: Read back France BOAMP QA snapshot
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/france-qa-readback.yml']
+  workflow_dispatch:
+permissions: {contents: write}
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download QA snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qa
+          gh release download tender-france-qa-v1 --pattern 'data_quality.json' --pattern 'run_manifest.json' --dir qa --clobber
+          cat qa/data_quality.json
+      - name: Commit QA readback
+        run: |
+          mkdir -p tender_pipeline
+          cp qa/data_quality.json tender_pipeline/france_last_quality.json
+          cp qa/run_manifest.json tender_pipeline/france_last_manifest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/france_last_quality.json tender_pipeline/france_last_manifest.json
+          git commit -m 'Record France normalization QA readback' || exit 0
+          git pull --rebase origin tender-harvest-relay-20260812
+          git push origin HEAD:tender-harvest-relay-20260812
