@@ -1,0 +1,43 @@
+name: Validate Belgium public procurement search schema
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-public-search-schema-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Probe anonymous date filters pagination and response shape
+        run: |
+          python - <<'PY'
+          import json,urllib.request
+          U='https://www.publicprocurement.be/api/sea/search/publications'
+          H={'User-Agent':'Mozilla/5.0 TenderResearch/1.0','Accept':'application/json','Content-Type':'application/json'}
+          tests=[
+            {'includeOrganisationChildren':True,'page':1,'pageSize':5,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
+            {'includeOrganisationChildren':True,'page':1,'pageSize':100,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
+            {'includeOrganisationChildren':True,'page':2,'pageSize':5,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
+          ]
+          for i,p in enumerate(tests,1):
+              req=urllib.request.Request(U,data=json.dumps(p).encode(),headers=H,method='POST')
+              with urllib.request.urlopen(req,timeout=60) as r:
+                  o=json.loads(r.read())
+              pubs=o.get('publications') or []
+              print('TEST',i,'STATUS',r.status,'BODY',json.dumps(p),'TOP_KEYS',sorted(o.keys()),'COUNT',len(pubs))
+              for k,v in o.items():
+                  if k!='publications' and not isinstance(v,(dict,list)): print('META',k,repr(v))
+              if pubs:
+                  print('PUB_KEYS',sorted(pubs[0].keys()))
+                  print('FIRST_ID',pubs[0].get('procedureId'),pubs[0].get('publicationDate'),pubs[0].get('referenceNumber'))
+                  print('LAST_ID',pubs[-1].get('procedureId'),pubs[-1].get('publicationDate'),pubs[-1].get('referenceNumber'))
+          print('BELGIUM_PUBLIC_SEARCH_SCHEMA_PASS')
+          PY
