@@ -20,7 +20,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Inspect publication-date public picker
+      - name: Capture app-generated publication-date range payload
         run: |
           python - <<'PY'
           import asyncio,json
@@ -30,30 +30,37 @@ jobs:
             async with async_playwright() as p:
               browser=await p.chromium.launch(headless=True)
               page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1400})
+              requests=[]
+              def on_request(req):
+                if API in req.url.lower(): requests.append(req.post_data)
+              page.on('request',on_request)
               async with page.expect_response(lambda r: API in r.url.lower(),timeout=90000) as first_info:
                 await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
               first=await first_info.value
               assert first.status==200,first.status
-              await page.wait_for_timeout(1500)
+              await page.wait_for_timeout(1200)
               field=page.locator('input').nth(6)
-              print('VALUE_BEFORE',repr(await field.input_value()))
               await field.click()
-              await page.wait_for_timeout(800)
-              print('VALUE_AFTER_CLICK',repr(await field.input_value()))
-              dialogs=page.locator('[role="dialog"]')
-              print('DIALOG_COUNT',await dialogs.count())
-              if await dialogs.count():
-                print('DIALOG_TEXT',repr((await dialogs.last.inner_text())[:8000]))
-                print('DIALOG_BUTTONS',json.dumps(await dialogs.last.locator('button').all_inner_texts(),ensure_ascii=False))
-              else:
-                visible=[]
-                for i in range(await page.locator('button').count()):
-                  b=page.locator('button').nth(i)
-                  if await b.is_visible():
-                    t=(await b.inner_text()).strip()
-                    aria=await b.get_attribute('aria-label')
-                    if t or aria: visible.append({'i':i,'text':t,'aria':aria})
-                print('VISIBLE_BUTTONS',json.dumps(visible[-80:],ensure_ascii=False))
+              dialog=page.locator('[role="dialog"]').last
+              assert await dialog.count(), 'date dialog not found'
+              one=dialog.get_by_role('button',name='1',exact=True)
+              two=dialog.get_by_role('button',name='2',exact=True)
+              assert await one.count() and await two.count(), 'August day buttons not found'
+              await one.click()
+              await two.click()
+              before=len(requests)
+              async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000) as filtered_info:
+                await dialog.get_by_role('button',name='OK',exact=True).click()
+              filtered=await filtered_info.value
+              assert filtered.status==200,filtered.status
+              await page.wait_for_timeout(300)
+              print('FIELD_VALUE',repr(await field.input_value()))
+              print('REQUEST_COUNT_BEFORE_OK',before,'AFTER',len(requests))
+              print('APP_GENERATED_FILTER_BODY',requests[-1] if requests else None)
+              body=await filtered.json(); pubs=body.get('publications') or []
+              dates=[x.get('publicationDate') for x in pubs if x.get('publicationDate')]
+              print('FILTERED_RESULT_COUNT',len(pubs),'NEWEST',max(dates) if dates else None,'OLDEST',min(dates) if dates else None)
+              assert requests and 'page' in (requests[-1] or ''),requests
               await browser.close()
           asyncio.run(main())
           PY
