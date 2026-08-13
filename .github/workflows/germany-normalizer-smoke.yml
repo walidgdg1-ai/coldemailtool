@@ -2,7 +2,10 @@ name: Diagnose Germany normalizer on one month
 on:
   push:
     branches: [tender-harvest-relay-20260812]
-    paths: ['.github/workflows/germany-normalizer-smoke.yml']
+    paths:
+      - '.github/workflows/germany-normalizer-smoke.yml'
+      - 'tools/tender_normalize_germany.py'
+      - 'tools/patch_germany_normalizer_runtime.py'
   workflow_dispatch:
 permissions:
   contents: read
