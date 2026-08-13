@@ -7,6 +7,7 @@ on:
       - '.github/workflows/belgium-ui-pagination-contract-probe.yml'
       - 'tools/belgium_public_harvest.py'
       - 'tools/tender_normalize_belgium.py'
+      - 'tools/patch_belgium_normalizer_runtime.py'
   workflow_dispatch:
 
 permissions:
@@ -50,15 +51,29 @@ jobs:
           gh release download "$TAG" --pattern 'belgium-public-checkpoint.json' --dir raw/belgium --clobber || true
 
       - name: Harvest public BDA chronologically with durable checkpoints
+        shell: bash
         run: |
           set -euo pipefail
-          python tools/belgium_public_harvest.py \
-            --out raw/belgium \
-            --release-tag tender-raw-belgium-public-v1 \
-            --start 2023-08-01 \
-            --end 2026-07-31 \
-            --chunk-pages 100 \
-            --delay-ms 150
+          COMPLETE=no
+          if [ -f raw/belgium/belgium-public-checkpoint.json ]; then
+            COMPLETE=$(python - <<'PY'
+          import json
+          q=json.load(open('raw/belgium/belgium-public-checkpoint.json'))
+          print('yes' if q.get('status')=='COMPLETE' else 'no')
+          PY
+          )
+          fi
+          if [ "$COMPLETE" = yes ]; then
+            echo 'BELGIUM_RAW_ALREADY_COMPLETE_SKIP_HARVEST'
+          else
+            python tools/belgium_public_harvest.py \
+              --out raw/belgium \
+              --release-tag tender-raw-belgium-public-v1 \
+              --start 2023-08-01 \
+              --end 2026-07-31 \
+              --chunk-pages 100 \
+              --delay-ms 100
+          fi
 
       - name: Read back complete raw census
         shell: bash
@@ -77,6 +92,7 @@ jobs:
           assert q['status']=='COMPLETE',q
           assert q['completed_pages']>100,q
           assert q['records_persisted']>10000,q
+          assert q['page_size']==25,q
           assert s['status']=='RAW_COMPLETE',s
           assert s['records_persisted']==q['records_persisted'],(s,q)
           print('BELGIUM_RAW_READBACK_PASS',q['completed_pages'],q['records_persisted'],q.get('oldest_seen'))
@@ -91,6 +107,9 @@ jobs:
             --pattern 'belgium-public-pages-*.jsonl.gz' \
             --dir raw_all --clobber
           echo "Belgium raw chunks: $(find raw_all -type f -name '*.jsonl.gz' | wc -l)"
+
+      - name: Apply exact observed BOSA public metadata mapping
+        run: python tools/patch_belgium_normalizer_runtime.py
 
       - name: Normalize conservative notice-first Belgium warehouse
         run: |
@@ -112,7 +131,10 @@ jobs:
           assert q['publication_events']>=q['canonical_tenders'],q
           assert all(q['integrity'].values()),q
           assert q['award_facts_status']=='NOT_ASSERTED_FROM_SEARCH_SUMMARY',q
-          print('BELGIUM_CANONICAL_PASS',q['canonical_tenders'],q['publication_events'],q['exact_ted_reference_links'])
+          assert q.get('buyer_name_coverage_pct',0)>80,q
+          assert q.get('title_coverage_pct',0)>80,q
+          assert q.get('procedure_type_coverage_pct',0)>50,q
+          print('BELGIUM_CANONICAL_PASS',q['canonical_tenders'],q['publication_events'],q['exact_ted_reference_links'],q['buyer_name_coverage_pct'],q['title_coverage_pct'],q['procedure_type_coverage_pct'])
           PY
 
       - name: Publish and read back Belgium canonical warehouse
@@ -136,5 +158,7 @@ jobs:
           q=json.load(open('final_rb/data_quality.json'))
           assert q['status']=='PASS',q
           assert all(q['integrity'].values()),q
-          print('BELGIUM_FINAL_RELEASE_READBACK_PASS',q['canonical_tenders'],q['publication_events'])
+          assert q.get('buyer_name_coverage_pct',0)>80,q
+          assert q.get('title_coverage_pct',0)>80,q
+          print('BELGIUM_FINAL_RELEASE_READBACK_PASS',q['canonical_tenders'],q['publication_events'],q['exact_ted_reference_links'])
           PY
