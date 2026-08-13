@@ -2,7 +2,8 @@
 from pathlib import Path
 p=Path('tools/tender_normalize_france.py')
 s=p.read_text(encoding='utf-8')
-s=s.replace('import argparse\n', 'import argparse\nimport csv\n', 1)
+s=s.replace('import argparse\n', 'import argparse\nimport csv\nimport sys\n', 1)
+s=s.replace('UNKNOWN = "UNKNOWN"\n', 'UNKNOWN = "UNKNOWN"\ncsv.field_size_limit(min(sys.maxsize, 2**31-1))\n', 1)
 old="""    for p in sorted(raw.glob(\"boamp_*.csv\")):
         source_files.append(p.name)
         with p.open(\"r\", encoding=\"utf-8-sig\", errors=\"replace\") as f:
@@ -92,4 +93,4 @@ s=s.replace("""        \"parse_errors\": parse_errors,
         \"embedded_json_errors\": embedded_json_errors,
 """,1)
 p.write_text(s,encoding='utf-8')
-print('France semicolon-CSV runtime patch applied')
+print('France semicolon-CSV runtime patch applied with raised field limit')
