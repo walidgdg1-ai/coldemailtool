@@ -3,6 +3,18 @@ from pathlib import Path
 p=Path('tools/tender_normalize_ted_bulk.py')
 s=p.read_text(encoding='utf-8')
 
+# Legacy TED DOC_ID values are not trusted as globally unique across archive years. When an
+# evidence-bearing buyer+reference linkage is unavailable, keep notice grain but namespace the
+# fallback identity to the official source package. Do the same for legacy award IDs.
+old_fallback="else:proc_key='legacy-notice|'+doc_id"
+new_fallback="else:proc_key='legacy-notice|'+source_asset+'|'+doc_id"
+if old_fallback not in s:raise SystemExit('legacy procurement fallback target not found')
+s=s.replace(old_fallback,new_fallback,1)
+old_award_id="aid=stable('awd','TED|'+doc_id+'|'+item+'|'+contract_no)"
+new_award_id="aid=stable('awd','TED|'+source_asset+'|'+doc_id+'|'+item+'|'+contract_no)"
+if old_award_id not in s:raise SystemExit('legacy award identity target not found')
+s=s.replace(old_award_id,new_award_id,1)
+
 # Canonicalization needs grouping over potentially millions of notice rows. Add a streaming
 # groupby and avoid one SQLite query per procurement key.
 if 'from itertools import groupby' not in s:
@@ -85,4 +97,4 @@ new2="""'award_tender_fk':all(x['Historical_Tender_ID'] in {t['Historical_Tender
 if old2 not in s:raise SystemExit('integrity block not found')
 s=s.replace(old2,new2,1)
 p.write_text(s,encoding='utf-8')
-print('TED dual-stack runtime patch applied: linear procurement grouping + preloaded award supplier bridge + O(1) integrity')
+print('TED dual-stack runtime patch applied: package-namespaced legacy fallbacks + linear procurement grouping + preloaded award supplier bridge + O(1) integrity')
