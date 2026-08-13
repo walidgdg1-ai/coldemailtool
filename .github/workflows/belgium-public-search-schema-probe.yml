@@ -20,16 +20,16 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Probe date filters pagination and response shape from public BDA page
+      - name: Probe arbitrary pages using only the exact app-generated public payload shape
         run: |
           python - <<'PY'
           import asyncio,json
           from playwright.async_api import async_playwright
 
           TESTS=[
-            {'includeOrganisationChildren':True,'page':1,'pageSize':5,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
-            {'includeOrganisationChildren':True,'page':1,'pageSize':100,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
-            {'includeOrganisationChildren':True,'page':2,'pageSize':5,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
+            {'includeOrganisationChildren':True,'page':2,'pageSize':25},
+            {'includeOrganisationChildren':True,'page':250,'pageSize':25},
+            {'includeOrganisationChildren':True,'page':1000,'pageSize':25},
           ]
           async def main():
             async with async_playwright() as p:
@@ -43,20 +43,15 @@ jobs:
                     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)
                   });
                   const text=await r.text();
-                  let body=null; try {body=JSON.parse(text)} catch(e) {body={_raw:text.slice(0,2000)}}
+                  let body=null; try {body=JSON.parse(text)} catch(e) {body={_raw:text.slice(0,500)}}
                   return {status:r.status,body};
                 }""",payload)
                 o=result['body'];pubs=(o.get('publications') or []) if isinstance(o,dict) else []
-                print('TEST',i,'STATUS',result['status'],'BODY',json.dumps(payload),'TOP_KEYS',sorted(o.keys()) if isinstance(o,dict) else [],'COUNT',len(pubs))
-                if isinstance(o,dict):
-                  for k,v in o.items():
-                    if k!='publications' and not isinstance(v,(dict,list)): print('META',k,repr(v))
-                if pubs:
-                  print('PUB_KEYS',sorted(pubs[0].keys()))
-                  print('FIRST_ID',pubs[0].get('procedureId'),pubs[0].get('publicationDate'),pubs[0].get('referenceNumber'))
-                  print('LAST_ID',pubs[-1].get('procedureId'),pubs[-1].get('publicationDate'),pubs[-1].get('referenceNumber'))
-                assert result['status']==200,(i,result)
+                dates=[x.get('publicationDate') for x in pubs if x.get('publicationDate')]
+                print('TEST',i,'STATUS',result['status'],'PAGE',payload['page'],'COUNT',len(pubs),'NEWEST',max(dates) if dates else None,'OLDEST',min(dates) if dates else None)
+                assert result['status']==200,(i,result['status'],o)
+                assert 0 < len(pubs) <= 25,(i,len(pubs))
               await browser.close()
-            print('BELGIUM_PUBLIC_SEARCH_SCHEMA_PASS')
+            print('BELGIUM_ARBITRARY_PAGE_PUBLIC_PAYLOAD_PASS')
           asyncio.run(main())
           PY
