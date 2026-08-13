@@ -1,0 +1,114 @@
+name: Probe Belgium Tender Bulletin anonymous network contract
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-anonymous-network-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install anonymous browser probe
+        run: |
+          python -m pip install --disable-pip-version-check -q playwright
+          python -m playwright install --with-deps chromium >/dev/null
+
+      - name: Capture only public SEA request contract
+        run: |
+          python - <<'PY'
+          import asyncio,json,re
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+
+          async def main():
+              report={'root':'https://www.publicprocurement.be/','anchors':[],'sea_requests':[],'errors':[]}
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch(headless=True)
+                  context=await browser.new_context(locale='en-GB')
+                  page=await context.new_page()
+
+                  async def on_response(resp):
+                      u=resp.url
+                      if '/api/sea/' not in u.lower(): return
+                      req=resp.request
+                      item={
+                          'method':req.method,
+                          'url':u,
+                          'post_data':req.post_data,
+                          'status':resp.status,
+                          'content_type':resp.headers.get('content-type'),
+                      }
+                      try:
+                          txt=await resp.text()
+                          item['response_prefix']=txt[:12000]
+                      except Exception as e:
+                          item['response_error']=repr(e)
+                      report['sea_requests'].append(item)
+
+                  page.on('response',lambda r: asyncio.create_task(on_response(r)))
+                  try:
+                      await page.goto(report['root'],wait_until='domcontentloaded',timeout=90000)
+                      await page.wait_for_timeout(5000)
+                      anchors=await page.locator('a').evaluate_all("els => els.map(a => ({text:(a.innerText||'').trim(),href:a.href})).filter(x=>x.href)")
+                      report['anchors']=anchors[:500]
+                      candidates=[]
+                      for a in anchors:
+                          key=(a.get('text','')+' '+a.get('href','')).lower()
+                          if any(x in key for x in ['tender bulletin','bulletin des adjudications','bulletin der aanbestedingen','bda','publication']):
+                              candidates.append(a)
+                      report['candidate_anchors']=candidates[:50]
+                      # Navigate only to a URL actually exposed by the anonymous public frontend.
+                      if candidates:
+                          target=candidates[0]['href']
+                          report['chosen_public_href']=target
+                          await page.goto(target,wait_until='domcontentloaded',timeout=90000)
+                          await page.wait_for_timeout(10000)
+                          # If the initial page does not load a search automatically, click a visible search button only.
+                          if not report['sea_requests']:
+                              for label in ['Search','Rechercher','Zoeken','Suchen']:
+                                  loc=page.get_by_role('button',name=re.compile(label,re.I))
+                                  if await loc.count():
+                                      try:
+                                          await loc.first.click(timeout=5000)
+                                          await page.wait_for_timeout(8000)
+                                          report['clicked_search_label']=label
+                                          break
+                                      except Exception: pass
+                      else:
+                          report['errors'].append('No public Tender Bulletin/BDA anchor exposed by anonymous homepage')
+                  except Exception as e:
+                      report['errors'].append(repr(e))
+                  await browser.close()
+              # Strict safety: do not persist request/response headers, cookies, localStorage, bearer tokens or browser state.
+              report['safety']='Anonymous public browsing only; no auth headers/cookies/tokens captured or reused.'
+              Path('belgium-anonymous-network-probe.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+              print(json.dumps(report,ensure_ascii=False,indent=2)[:30000])
+              if not report['sea_requests']:
+                  raise SystemExit('No anonymous SEA request observed')
+
+          asyncio.run(main())
+          PY
+
+      - name: Persist public contract diagnostic
+        if: always()
+        run: |
+          set -euo pipefail
+          TAG='tender-belgium-anonymous-network-probe-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Belgium anonymous public tender API probe' \
+              --notes 'Diagnostic of anonymous public Tender Bulletin network calls. Contains no auth headers, cookies, browser state, or credentials.' \
+              --target tender-harvest-relay-20260812
+          fi
+          test -f belgium-anonymous-network-probe.json && gh release upload "$TAG" belgium-anonymous-network-probe.json --clobber || true
