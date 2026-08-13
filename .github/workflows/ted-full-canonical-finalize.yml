@@ -1,0 +1,51 @@
+name: TED full canonical finalize
+
+on:
+  workflow_run:
+    workflows: ['TED full canonical stage']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  finalize:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download validated TED stages
+        run: |
+          mkdir -p stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-*.historical_tenders.csv.gz' --dir stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-*.awards.csv.gz' --dir stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-*.award_suppliers.csv.gz' --dir stage_input
+          gh release download tender-normalized-ted-stage-v1 --pattern 'ted-stage-summary.json' --dir stage_input
+      - name: Finalize cross-package warehouse
+        run: python tools/ted_finalize_stages.py --stage-dir stage_input --stage-summary stage_input/ted-stage-summary.json --out normalized/ted
+      - name: Validate and publish
+        run: |
+          python - <<'PY'
+          import json
+          q=json.load(open('normalized/ted/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_raw_xml']==2566835,q
+          assert all(q['integrity'].values()),q
+          print('TED_GLOBAL_CANONICAL_PASS',q['canonical_counts'])
+          PY
+          TAG='tender-normalized-ted-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Normalized — TED Official Bulk v1' --notes 'Canonical dual-stack TED warehouse from all 45 official bulk packages.' --target tender-harvest-relay-20260812
+          fi
+          find normalized/ted -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
