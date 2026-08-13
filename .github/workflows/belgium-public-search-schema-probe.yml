@@ -12,32 +12,51 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Probe anonymous date filters pagination and response shape
+      - name: Install anonymous browser
+        run: |
+          python -m pip install --disable-pip-version-check -q playwright
+          python -m playwright install --with-deps chromium >/dev/null
+      - name: Probe date filters pagination and response shape from public BDA page
         run: |
           python - <<'PY'
-          import json,urllib.request
-          U='https://www.publicprocurement.be/api/sea/search/publications'
-          H={'User-Agent':'Mozilla/5.0 TenderResearch/1.0','Accept':'application/json','Content-Type':'application/json'}
-          tests=[
+          import asyncio,json
+          from playwright.async_api import async_playwright
+
+          TESTS=[
             {'includeOrganisationChildren':True,'page':1,'pageSize':5,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
             {'includeOrganisationChildren':True,'page':1,'pageSize':100,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
             {'includeOrganisationChildren':True,'page':2,'pageSize':5,'publicationDateFrom':'2026-08-12','publicationDateTo':'2026-08-13'},
           ]
-          for i,p in enumerate(tests,1):
-              req=urllib.request.Request(U,data=json.dumps(p).encode(),headers=H,method='POST')
-              with urllib.request.urlopen(req,timeout=60) as r:
-                  o=json.loads(r.read())
-              pubs=o.get('publications') or []
-              print('TEST',i,'STATUS',r.status,'BODY',json.dumps(p),'TOP_KEYS',sorted(o.keys()),'COUNT',len(pubs))
-              for k,v in o.items():
-                  if k!='publications' and not isinstance(v,(dict,list)): print('META',k,repr(v))
-              if pubs:
+          async def main():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True)
+              page=await browser.new_page(locale='en-GB')
+              await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
+              await page.wait_for_timeout(3000)
+              for i,payload in enumerate(TESTS,1):
+                result=await page.evaluate("""async (payload) => {
+                  const r=await fetch('/api/sea/search/publications',{
+                    method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)
+                  });
+                  const text=await r.text();
+                  let body=null; try {body=JSON.parse(text)} catch(e) {body={_raw:text.slice(0,2000)}}
+                  return {status:r.status,body};
+                }""",payload)
+                o=result['body'];pubs=(o.get('publications') or []) if isinstance(o,dict) else []
+                print('TEST',i,'STATUS',result['status'],'BODY',json.dumps(payload),'TOP_KEYS',sorted(o.keys()) if isinstance(o,dict) else [],'COUNT',len(pubs))
+                if isinstance(o,dict):
+                  for k,v in o.items():
+                    if k!='publications' and not isinstance(v,(dict,list)): print('META',k,repr(v))
+                if pubs:
                   print('PUB_KEYS',sorted(pubs[0].keys()))
                   print('FIRST_ID',pubs[0].get('procedureId'),pubs[0].get('publicationDate'),pubs[0].get('referenceNumber'))
                   print('LAST_ID',pubs[-1].get('procedureId'),pubs[-1].get('publicationDate'),pubs[-1].get('referenceNumber'))
-          print('BELGIUM_PUBLIC_SEARCH_SCHEMA_PASS')
+                assert result['status']==200,(i,result)
+              await browser.close()
+            print('BELGIUM_PUBLIC_SEARCH_SCHEMA_PASS')
+          asyncio.run(main())
           PY
