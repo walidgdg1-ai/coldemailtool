@@ -20,47 +20,28 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Probe whether public UI pagination is addressable through URL state
+      - name: Read public search-filter labels only
         run: |
           python - <<'PY'
-          import asyncio,re
+          import asyncio,json
           from playwright.async_api import async_playwright
-
           API='/api/sea/search/publications'
           async def main():
             async with async_playwright() as p:
               browser=await p.chromium.launch(headless=True)
-              page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1100})
-              requests=[]
-              def on_req(req):
-                if API in req.url.lower(): requests.append(req.post_data)
-              page.on('request',on_req)
-              await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
-              await page.wait_for_timeout(5000)
-              print('URL_INITIAL',page.url)
-              p2=page.get_by_role('button',name=re.compile(r'^\s*2\s*$'))
-              assert await p2.count() and await p2.first.is_visible()
-              async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000):
-                await p2.first.click()
-              await page.wait_for_timeout(1000)
-              print('URL_AFTER_PAGE2',page.url)
-              print('REQUEST_AFTER_PAGE2',requests[-1] if requests else None)
-              # The public UI exposes the last page as a numbered pagination button.
-              buttons=await page.locator('button').evaluate_all("els=>els.map((e,i)=>({i,text:(e.innerText||'').trim(),aria:e.getAttribute('aria-label'),disabled:e.disabled})).filter(x=>x.text)")
-              nums=[]
-              for b in buttons:
-                t=b['text'].replace(',','').strip()
-                if t.isdigit(): nums.append((int(t),b['text']))
-              assert nums,buttons
-              last_num,last_text=max(nums)
-              print('LAST_VISIBLE_PAGE',last_num,last_text)
-              last=page.get_by_role('button',name=re.compile(r'^\s*'+re.escape(last_text)+r'\s*$'))
-              assert await last.count() and await last.first.is_visible()
-              async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000):
-                await last.first.click()
-              await page.wait_for_timeout(1000)
-              print('URL_AFTER_LAST',page.url)
-              print('REQUEST_AFTER_LAST',requests[-1] if requests else None)
+              page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1400})
+              async with page.expect_response(lambda r: API in r.url.lower(),timeout=90000) as first_info:
+                await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
+              first=await first_info.value
+              assert first.status==200,first.status
+              await page.wait_for_timeout(2500)
+              print('LABELS',json.dumps(await page.locator('label').all_inner_texts(),ensure_ascii=False))
+              rows=[]
+              for i in range(await page.locator('input').count()):
+                x=page.locator('input').nth(i)
+                rows.append({'i':i,'type':await x.get_attribute('type'),'aria':await x.get_attribute('aria-label'),'placeholder':await x.get_attribute('placeholder')})
+              print('INPUTS',json.dumps(rows,ensure_ascii=False))
+              print('BUTTONS',json.dumps(await page.locator('button').all_inner_texts(),ensure_ascii=False))
               await browser.close()
           asyncio.run(main())
           PY
