@@ -12,7 +12,6 @@ import asyncio
 import gzip
 import hashlib
 import json
-import os
 from pathlib import Path
 import subprocess
 from datetime import date
@@ -44,7 +43,6 @@ async def run(args):
     from playwright.async_api import async_playwright
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     cutoff=date.fromisoformat(args.start)
-    end=date.fromisoformat(args.end)
     checkpoint_path=out/'belgium-public-checkpoint.json'
     completed_pages=0
     completed_records=0
@@ -52,7 +50,6 @@ async def run(args):
         cp=json.loads(checkpoint_path.read_text(encoding='utf-8'))
         completed_pages=int(cp.get('completed_pages') or 0)
         completed_records=int(cp.get('records_persisted') or 0)
-    chunk_no=completed_pages//args.chunk_pages
 
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
@@ -60,7 +57,6 @@ async def run(args):
         await page.goto(BDA_URL,wait_until='domcontentloaded',timeout=90000)
         await page.wait_for_timeout(6000)
 
-        # Identify the public 10/25/50/100 page-size selector by option values.
         page_size_select=None
         for i in range(await page.locator('select').count()):
             sel=page.locator('select').nth(i)
@@ -76,7 +72,8 @@ async def run(args):
         body=await resp.json()
         current_page=1
 
-        # Resume safely by replaying public Next actions. We do not persist replayed responses.
+        # Resume by replaying public Next actions. After this loop, body/current_page point to
+        # the first page not yet checkpointed. Replayed responses are never persisted twice.
         while current_page<=completed_pages:
             nxt=page.locator('button[aria-label="pagination.common.nextPage"]')
             if not await nxt.count() or not await nxt.first.is_enabled():raise RuntimeError('Cannot replay to saved Belgium checkpoint')
@@ -88,11 +85,11 @@ async def run(args):
 
         done=False
         while not done:
-            chunk_no+=1
-            chunk_path=out/f'belgium-public-pages-{current_page:05d}-{current_page+args.chunk_pages-1:05d}.jsonl.gz'
-            rows_written=0;page_start=current_page;oldest=None;newest=None;page_end=current_page-1
+            page_start=current_page
+            chunk_path=out/f'belgium-public-pages-{page_start:05d}-{page_start+args.chunk_pages-1:05d}.jsonl.gz'
+            rows_written=0;oldest=None;newest=None;page_end=current_page-1
             with gzip.open(chunk_path,'wt',encoding='utf-8',newline='') as f:
-                for _ in range(args.chunk_pages):
+                for i in range(args.chunk_pages):
                     pubs=body.get('publications') or []
                     if not isinstance(pubs,list):raise RuntimeError(f'BDA response publications is {type(pubs)}')
                     for pub in pubs:
@@ -108,6 +105,8 @@ async def run(args):
                     nxt=page.locator('button[aria-label="pagination.common.nextPage"]')
                     if not await nxt.count() or not await nxt.first.is_enabled():
                         done=True;break
+                    # Do not prefetch a page that belongs to the next chunk after the final row
+                    # unless we preserve its body/current_page as the next chunk start.
                     async with page.expect_response(lambda r: ENDPOINT_FRAGMENT in r.url.lower(),timeout=30000) as ni:
                         await nxt.first.click()
                     rr=await ni.value
@@ -115,8 +114,6 @@ async def run(args):
                     body=await rr.json();current_page+=1
                     await page.wait_for_timeout(args.delay_ms)
 
-            # Keep one boundary page older than the canonical start for provenance; the normalizer
-            # applies the exact date window. Every chunk is uploaded before advancing checkpoint.
             manifest={
                 'source':'Belgium e-Procurement Bulletin of Tenders public BDA',
                 'mode':'anonymous_public_ui',
@@ -143,7 +140,8 @@ async def run(args):
             upload(args.release_tag,checkpoint_path)
             print('BELGIUM_CHUNK_COMMITTED',page_start,page_end,rows_written,'oldest',oldest,'records',completed_records,flush=True)
             if done:break
-            current_page+=1
+            # body/current_page already point to the next unpersisted page because the final
+            # iteration prefetched it. Do not increment here or a page will be skipped.
 
         await browser.close()
     summary={
