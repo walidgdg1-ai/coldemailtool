@@ -1,0 +1,77 @@
+name: Probe legacy TED XML structure
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/ted-legacy-structure-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download August 2023 official bulk package
+        run: |
+          mkdir -p probe
+          gh release download tender-raw-ted-official-bulk-v1 --pattern 'ted-monthly-2023-08.package.gz' --dir probe --clobber
+      - name: Extract representative legacy form branches
+        run: |
+          python - <<'PY'
+          import tarfile,io,json,xml.etree.ElementTree as ET
+          from pathlib import Path
+          def local(t): return t.rsplit('}',1)[-1]
+          def text(e):
+              s=' '.join((e.text or '').split())
+              return s[:500] if s else None
+          def compact(e,depth=0,maxdepth=6):
+              d={'tag':local(e.tag)}
+              if e.attrib:d['attrs']={local(k):v for k,v in e.attrib.items()}
+              tx=text(e)
+              if tx:d['text']=tx
+              if depth<maxdepth:
+                  ch=[compact(c,depth+1,maxdepth) for c in list(e)]
+                  if ch:d['children']=ch
+              return d
+          def payloads(pkg):
+              with tarfile.open(pkg,'r:*') as outer:
+                  for om in outer.getmembers():
+                      if not om.isfile() or not om.name.lower().endswith(('.tar.gz','.tgz','.tar')):continue
+                      f=outer.extractfile(om)
+                      if f is None:continue
+                      with tarfile.open(fileobj=io.BytesIO(f.read()),mode='r:*') as inner:
+                          for im in inner.getmembers():
+                              if not im.isfile() or not im.name.lower().endswith('.xml'):continue
+                              xf=inner.extractfile(im)
+                              if xf is not None:yield om.name+'::'+im.name,xf.read()
+          wanted={'Contract award notice':None,'Contract notice':None}
+          for name,data in payloads(next(Path('probe').glob('*.package.gz'))):
+              root=ET.fromstring(data)
+              if local(root.tag)!='TED_EXPORT':continue
+              td=None
+              for e in root.iter():
+                  if local(e.tag)=='TD_DOCUMENT_TYPE':
+                      td=text(e);break
+              if td not in wanted or wanted[td] is not None:continue
+              branches=[]
+              for e in root.iter():
+                  if local(e.tag) in {'NOTICE_DATA','CONTRACTING_BODY','OBJECT_CONTRACT','PROCEDURE','AWARD_CONTRACT'}:
+                      branches.append(compact(e,maxdepth=7))
+              wanted[td]={'member':name,'root_attrs':{local(k):v for k,v in root.attrib.items()},'branches':branches}
+              if all(v is not None for v in wanted.values()):break
+          Path('probe/ted_legacy_structure.json').write_text(json.dumps(wanted,indent=2,ensure_ascii=False),encoding='utf-8')
+          print(json.dumps(wanted,indent=2,ensure_ascii=False))
+          PY
+      - name: Persist structure probe
+        run: |
+          TAG='tender-ted-legacy-structure-probe-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'TED legacy XML structure probe v1' --notes 'Representative legacy TED_EXPORT Contract notice and Contract award notice branches.' --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" probe/ted_legacy_structure.json --clobber
