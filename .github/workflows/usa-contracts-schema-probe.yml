@@ -20,7 +20,7 @@ jobs:
           mkdir -p raw/usa
           gh release download tender-raw-usa-fy2026-v1 --pattern '*.zip' --dir raw/usa --clobber
           ls -lh raw/usa
-      - name: Inspect ZIP members and CSV headers without extraction
+      - name: Inspect ZIP members and compact CSV headers without extraction
         run: |
           python - <<'PY'
           import csv,io,json,zipfile
@@ -37,16 +37,23 @@ jobs:
                   r=csv.reader(tf)
                   try: header=next(r)
                   except StopIteration: header=[]
-                  rows=[]
-                  for _ in range(2):
-                    try:rows.append(next(r))
-                    except StopIteration:break
+                  try: first=next(r)
+                  except StopIteration: first=[]
                 item['column_count']=len(header)
                 item['header']=header
-                item['sample_rows']=[dict(zip(header,row)) for row in rows]
+                # Preserve enough values to infer semantics without blowing GitHub issue limits.
+                sample={}
+                for k,v in zip(header,first):
+                  if v not in ('',None): sample[k]=str(v)[:180]
+                item['first_nonempty_values']=sample
               out['members'].append(item)
-          Path('usa_contracts_schema_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps(out,ensure_ascii=False,indent=2)[:100000])
+          raw=json.dumps(out,ensure_ascii=False,indent=2)
+          if len(raw)>50000:
+              # Header is authoritative; samples are secondary. Drop samples if necessary.
+              for m in out['members']: m.pop('first_nonempty_values',None)
+              raw=json.dumps(out,ensure_ascii=False,indent=2)
+          Path('usa_contracts_schema_probe.json').write_text(raw[:55000],encoding='utf-8')
+          print(raw[:55000])
           PY
       - name: Publish temporary private schema issue
         env: {GH_TOKEN: '${{ github.token }}'}
