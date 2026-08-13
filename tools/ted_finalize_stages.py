@@ -71,14 +71,26 @@ def main():
         FROM a0
       ) WHERE rn=1""")
     # Bridge duplicates are collapsed at identity grain; allocations are never added together.
+    # Crucially, supplier multiplicity must be evaluated AFTER cross-package collapse: an award
+    # can appear mono-supplier in one notice revision and multi-supplier in another. In that case
+    # any inherited per-supplier allocation is unsafe and is nulled globally rather than implying
+    # that the group award value belongs to each consortium member.
     con.execute("""CREATE TEMP TABLE bridges_final AS
-      SELECT Award_ID,Supplier_ID,
-             arg_max(Supplier_Name,length(coalesce(Supplier_Name,''))) Supplier_Name,
-             any_value(Relationship) Relationship,
-             max(try_cast(nullif(Award_Value_Allocated,'') AS DOUBLE)) Award_Value_Allocated,
-             arg_max(Supplier_Country,length(coalesce(Supplier_Country,''))) Supplier_Country,
-             any_value(SME_Status) SME_Status
-      FROM b0 WHERE nullif(Supplier_ID,'') IS NOT NULL GROUP BY 1,2""")
+      WITH dedup AS (
+        SELECT Award_ID,Supplier_ID,
+               arg_max(Supplier_Name,length(coalesce(Supplier_Name,''))) Supplier_Name,
+               any_value(Relationship) Relationship,
+               max(try_cast(nullif(Award_Value_Allocated,'') AS DOUBLE)) Award_Value_Allocated_Pre,
+               arg_max(Supplier_Country,length(coalesce(Supplier_Country,''))) Supplier_Country,
+               any_value(SME_Status) SME_Status
+        FROM b0 WHERE nullif(Supplier_ID,'') IS NOT NULL GROUP BY 1,2
+      ), guarded AS (
+        SELECT *,count(*) OVER(PARTITION BY Award_ID) Supplier_Count_Global FROM dedup
+      )
+      SELECT Award_ID,Supplier_ID,Supplier_Name,Relationship,
+             CASE WHEN Supplier_Count_Global>1 THEN NULL ELSE Award_Value_Allocated_Pre END Award_Value_Allocated,
+             Supplier_Country,SME_Status
+      FROM guarded""")
     con.execute("""CREATE TEMP TABLE buyers_final AS
       WITH t AS (
         SELECT Buyer_ID,arg_max(Buyer_Name,length(coalesce(Buyer_Name,''))) Buyer_Name,
