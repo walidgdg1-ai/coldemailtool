@@ -1,0 +1,53 @@
+name: Probe tender publication permissions
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-release-permission-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create tiny payload
+        run: |
+          mkdir -p probe
+          printf '{"run_id":"%s","sha":"%s"}\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > probe/payload.json
+      - name: Probe release creation and upload
+        id: release
+        shell: bash
+        run: |
+          set +e
+          TAG="tender-publication-permission-probe-${GITHUB_RUN_ID}"
+          gh release create "$TAG" --title "Tender publication probe $GITHUB_RUN_ID" --notes 'Temporary publication permission probe.' --target tender-harvest-relay-20260812 > release_create.log 2>&1
+          rc=$?
+          cat release_create.log
+          echo "create_rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" = 0 ]; then
+            gh release upload "$TAG" probe/payload.json --clobber > release_upload.log 2>&1
+            urc=$?
+            cat release_upload.log
+            echo "upload_rc=$urc" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload_rc=999" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+      - name: Always persist via Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tender-publication-probe-${{ github.run_id }}
+          path: probe/payload.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Report
+        run: |
+          echo "release_create_rc=${{ steps.release.outputs.create_rc }}"
+          echo "release_upload_rc=${{ steps.release.outputs.upload_rc }}"
