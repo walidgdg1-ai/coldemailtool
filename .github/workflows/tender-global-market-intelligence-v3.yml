@@ -1,0 +1,73 @@
+name: Build global tender market intelligence v3
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-global-market-intelligence-v3.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-global-market-intelligence-v3
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download validated Core v3 and USA award-first intelligence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p core usa intel
+          for try in $(seq 1 18); do
+            ok=1
+            for a in historical_tenders.parquet awards.parquet award_suppliers.parquet data_quality.json evidence_lanes.json; do
+              gh release download tender-normalized-global-core-v3 --pattern "$a" --dir core --clobber >/dev/null 2>&1 || ok=0
+            done
+            if [ "$ok" = 1 ]; then break; fi
+            if [ "$try" = 18 ]; then echo 'Core v3 release assets incomplete'; exit 1; fi
+            sleep 10
+          done
+          gh release download tender-normalized-usa-awards-v1 --pattern market_rank.csv --pattern repeat_buyers.csv --dir usa --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['counts_notice_first']['historical_tenders']==1260252,q
+          assert q['counts_notice_first']['awards']==761574,q
+          assert all(v in (True,0) for v in q['integrity'].values()),q['integrity']
+          print('CORE_V3_READBACK_PASS',q['counts_notice_first'])
+          PY
+
+      - name: Build evidence-aware intelligence
+        run: |
+          python tools/build_market_intelligence_v3.py \
+            --core core \
+            --usa-rank usa/market_rank.csv \
+            --usa-repeat usa/repeat_buyers.csv \
+            --out intel
+
+      - name: Publish Market Intelligence v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-global-market-intelligence-v3'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — Market Intelligence v3' \
+              --notes 'Evidence-aware intelligence layer. Opportunity rankings use notice-first Global Core v3 only. USAspending award-first market evidence is retained as a separately labelled lane and never mixed into opportunity volume. Currency isolation, bidder-coverage neutralization and fractional consortium supplier shares remain enforced.' \
+              --target tender-harvest-relay-20260812
+          fi
+          find intel -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets
