@@ -44,7 +44,9 @@ jobs:
               top=con.execute(f"SELECT Warehouse_Source,{key},count(*) n,count(distinct {row_expr}) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 ORDER BY n DESC LIMIT 10").fetchall()
               samples=[]
               for src,eid,n,versions in top[:3]:
-                  rows=con.execute(f"SELECT * FROM read_parquet('{p}') WHERE Warehouse_Source=? AND {key}=? LIMIT 5",[src,eid]).fetchdf().fillna('').to_dict('records')
+                  cur=con.execute(f"SELECT * FROM read_parquet('{p}') WHERE Warehouse_Source=? AND {key}=? LIMIT 5",[src,eid])
+                  names=[d[0] for d in cur.description]
+                  rows=[dict(zip(names,row)) for row in cur.fetchall()]
                   samples.append({'Warehouse_Source':src,key:eid,'count':n,'versions':versions,'rows':rows})
               result[name]={'schema':schema,'rows':total,'source_entity_keys':distinct_keys,'duplicate_keys':dup_keys,'extra_rows_from_duplicate_keys':int(dup_rows),'distinct_full_rows':distinct_rows,'conflicting_duplicate_keys':conflict_keys,'top_duplicate_keys':[list(x) for x in top],'conflict_samples':samples}
           Path('qa/entity_duplicate_audit.json').write_text(json.dumps(result,indent=2,default=str),encoding='utf-8')
