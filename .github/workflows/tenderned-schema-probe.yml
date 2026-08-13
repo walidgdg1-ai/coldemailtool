@@ -1,0 +1,62 @@
+name: Probe official TenderNed JSON schema
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tenderned-schema-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Download official TenderNed H1 2026 JSON
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors \
+            'https://www.tenderned.nl/cms/sites/default/files/2026-07/Dataset_Tenderned-2026-01-01-2026-06-30.json' \
+            -o tenderned-2026-h1.json
+          ls -lh tenderned-2026-h1.json
+          sha256sum tenderned-2026-h1.json
+      - name: Inspect real JSON structure and representative fields
+        run: |
+          python - <<'PY'
+          import json,collections
+          p='tenderned-2026-h1.json'
+          x=json.load(open(p,encoding='utf-8-sig'))
+          print('ROOT_TYPE',type(x).__name__)
+          if isinstance(x,dict):
+              print('ROOT_KEYS',list(x)[:100])
+              for k,v in x.items():
+                  if isinstance(v,list): print('LIST_FIELD',k,'LEN',len(v)); rows=v; break
+              else: rows=[]
+          elif isinstance(x,list): rows=x; print('ROOT_LEN',len(rows))
+          else: rows=[]
+          if not rows: raise SystemExit('No list rows discovered')
+          print('ROW0_TYPE',type(rows[0]).__name__)
+          if isinstance(rows[0],dict):
+              print('ROW0_KEYS',list(rows[0].keys()))
+              print('ROW0',json.dumps(rows[0],ensure_ascii=False)[:12000])
+              counts=collections.Counter()
+              scalar_samples={}
+              def walk(o,prefix=''):
+                  if isinstance(o,dict):
+                      for k,v in o.items(): walk(v,f'{prefix}.{k}' if prefix else k)
+                  elif isinstance(o,list):
+                      counts[prefix+'[]']+=1
+                      for v in o[:3]: walk(v,prefix+'[]')
+                  else:
+                      counts[prefix]+=1
+                      if o not in (None,'') and prefix not in scalar_samples: scalar_samples[prefix]=o
+              for r in rows[:100]: walk(r)
+              print('FIELD_PATHS')
+              for k in sorted(counts): print(k,'SAMPLE=',repr(scalar_samples.get(k))[:300])
+          print('PROBE_PASS rows',len(rows))
+          PY
