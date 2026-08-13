@@ -18,6 +18,7 @@ from datetime import date
 
 ENDPOINT_FRAGMENT='/api/sea/search/publications'
 BDA_URL='https://www.publicprocurement.be/bda'
+PAGE_SIZE=25
 
 
 def sha256(path:Path)->str:
@@ -48,35 +49,30 @@ async def run(args):
     completed_records=0
     if checkpoint_path.exists():
         cp=json.loads(checkpoint_path.read_text(encoding='utf-8'))
+        if int(cp.get('page_size') or PAGE_SIZE)!=PAGE_SIZE:
+            raise RuntimeError(f"Belgium checkpoint page size mismatch: {cp.get('page_size')} != {PAGE_SIZE}")
         completed_pages=int(cp.get('completed_pages') or 0)
         completed_records=int(cp.get('records_persisted') or 0)
 
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True)
         page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1100})
-        await page.goto(BDA_URL,wait_until='domcontentloaded',timeout=90000)
-        await page.wait_for_timeout(6000)
 
-        page_size_select=None
-        for i in range(await page.locator('select').count()):
-            sel=page.locator('select').nth(i)
-            vals=await sel.locator('option').evaluate_all("els=>els.map(o=>o.value)")
-            if {'10','25','50','100'}.issubset(set(vals)):
-                page_size_select=sel;break
-        if page_size_select is None:raise RuntimeError('Public BDA 10/25/50/100 page-size selector not found')
-
-        # BOSA renders the native select hidden behind its visible component. This is still the
-        # public UI control; force=True merely lets Playwright dispatch the same change event to
-        # that hidden native select instead of rejecting it for lack of CSS visibility.
-        async with page.expect_response(lambda r: ENDPOINT_FRAGMENT in r.url.lower(),timeout=30000) as info:
-            await page_size_select.select_option('100',force=True)
-        resp=await info.value
-        if resp.status!=200:raise RuntimeError(f'BDA page-size request HTTP {resp.status}')
-        body=await resp.json()
+        # Capture the exact initial anonymous app-generated public search response. The default
+        # page size (25) and page-1 request were already independently observed in the UI probe.
+        async with page.expect_response(lambda r: ENDPOINT_FRAGMENT in r.url.lower(),timeout=90000) as initial_info:
+            await page.goto(BDA_URL,wait_until='domcontentloaded',timeout=90000)
+        initial=await initial_info.value
+        if initial.status!=200:raise RuntimeError(f'BDA initial public search HTTP {initial.status}')
+        body=await initial.json()
         current_page=1
+        await page.wait_for_timeout(3000)
 
-        # Resume by replaying public Next actions. After this loop, body/current_page point to
-        # the first page not yet checkpointed. Replayed responses are never persisted twice.
+        pubs0=body.get('publications') or []
+        if not isinstance(pubs0,list):raise RuntimeError('BDA initial publications payload is not a list')
+        if len(pubs0)>PAGE_SIZE:raise RuntimeError(f'Unexpected Belgium default page size: {len(pubs0)}>{PAGE_SIZE}')
+
+        # Resume by replaying the same public Next control. Replayed pages are not persisted.
         while current_page<=completed_pages:
             nxt=page.locator('button[aria-label="pagination.common.nextPage"]')
             if not await nxt.count() or not await nxt.first.is_enabled():raise RuntimeError('Cannot replay to saved Belgium checkpoint')
@@ -92,7 +88,7 @@ async def run(args):
             chunk_path=out/f'belgium-public-pages-{page_start:05d}-{page_start+args.chunk_pages-1:05d}.jsonl.gz'
             rows_written=0;oldest=None;newest=None;page_end=current_page-1
             with gzip.open(chunk_path,'wt',encoding='utf-8',newline='') as f:
-                for i in range(args.chunk_pages):
+                for _ in range(args.chunk_pages):
                     pubs=body.get('publications') or []
                     if not isinstance(pubs,list):raise RuntimeError(f'BDA response publications is {type(pubs)}')
                     for pub in pubs:
@@ -119,7 +115,7 @@ async def run(args):
                 'source':'Belgium e-Procurement Bulletin of Tenders public BDA',
                 'mode':'anonymous_public_ui',
                 'endpoint_observed':ENDPOINT_FRAGMENT,
-                'page_size':100,
+                'page_size':PAGE_SIZE,
                 'page_start':page_start,'page_end':page_end,'rows':rows_written,
                 'oldest_publication_date':str(oldest) if oldest else None,
                 'newest_publication_date':str(newest) if newest else None,
@@ -135,20 +131,19 @@ async def run(args):
                 'source':'BELGIUM_PUBLIC_BDA','status':'COMPLETE' if done else 'READY_TO_CONTINUE',
                 'completed_pages':completed_pages,'records_persisted':completed_records,
                 'last_chunk':chunk_path.name,'oldest_seen':str(oldest) if oldest else None,
-                'window_start':args.start,'window_end':args.end,'page_size':100
+                'window_start':args.start,'window_end':args.end,'page_size':PAGE_SIZE
             }
             checkpoint_path.write_text(json.dumps(checkpoint,ensure_ascii=False,indent=2),encoding='utf-8')
             upload(args.release_tag,checkpoint_path)
             print('BELGIUM_CHUNK_COMMITTED',page_start,page_end,rows_written,'oldest',oldest,'records',completed_records,flush=True)
             if done:break
-            # body/current_page already point to the next unpersisted page because the final
-            # iteration prefetched it. Do not increment here or a page will be skipped.
+            # body/current_page already point to the next unpersisted page.
 
         await browser.close()
     summary={
         'source':'BELGIUM_PUBLIC_BDA','status':'RAW_COMPLETE','completed_pages':completed_pages,
         'records_persisted':completed_records,'window_start':args.start,'window_end':args.end,
-        'page_size':100,'release':args.release_tag
+        'page_size':PAGE_SIZE,'release':args.release_tag
     }
     sp=out/'belgium-public-summary.json';sp.write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8');upload(args.release_tag,sp)
     print(json.dumps(summary,indent=2))
@@ -161,7 +156,7 @@ def main():
     ap.add_argument('--start',default='2023-08-01')
     ap.add_argument('--end',default='2026-07-31')
     ap.add_argument('--chunk-pages',type=int,default=100)
-    ap.add_argument('--delay-ms',type=int,default=150)
+    ap.add_argument('--delay-ms',type=int,default=100)
     args=ap.parse_args()
     asyncio.run(run(args))
 
