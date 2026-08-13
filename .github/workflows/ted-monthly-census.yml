@@ -1,0 +1,64 @@
+name: TED RESULT monthly exhaustive census
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/ted-monthly-census.yml'
+      - 'tools/ted_monthly_census.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-ted-monthly-census-v1
+  cancel-in-progress: false
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Prepare persistent monthly census release and checkpoint
+        run: |
+          set -euo pipefail
+          TAG='tender-ted-monthly-census-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'TED RESULT monthly exhaustive census v1' \
+              --notes 'Authoritative shallow date-partitioned TED RESULT census for 2023-08-11 through 2026-08-11. Monthly independent ITERATION cursors avoid deep-global-cursor failures. Each month is persisted atomically as raw JSONL.gz, normalized CSV.gz, manifest, then checkpointed.' \
+              --target "$GITHUB_SHA"
+          fi
+          mkdir -p checkpoint
+          gh release download "$TAG" --pattern 'ted-monthly-checkpoint.json' --dir checkpoint --clobber || true
+
+      - name: Harvest every missing monthly partition
+        run: |
+          set -euo pipefail
+          ARGS=(--release-tag tender-ted-monthly-census-v1 --out ted_monthly)
+          if [ -f checkpoint/ted-monthly-checkpoint.json ]; then
+            ARGS+=(--checkpoint checkpoint/ted-monthly-checkpoint.json)
+          fi
+          python tools/ted_monthly_census.py "${ARGS[@]}"
+
+      - name: Read back authoritative checkpoint
+        run: |
+          set -euo pipefail
+          rm -rf readback && mkdir readback
+          gh release download tender-ted-monthly-census-v1 --pattern 'ted-monthly-checkpoint.json' --pattern 'ted-monthly-summary.json' --dir readback --clobber
+          cat readback/ted-monthly-summary.json
+          python - <<'PY'
+          import json
+          q=json.load(open('readback/ted-monthly-summary.json'))
+          assert q['status']=='CENSUS_COMPLETE',q
+          assert q['range_count']==q['expected_range_count'],q
+          assert q['completed_record_sum']==q['global_total_notice_count_readback'],q
+          print('TED_MONTHLY_EXHAUSTIVE_CENSUS_PASS',q['completed_record_sum'])
+          PY
