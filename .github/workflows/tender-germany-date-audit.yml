@@ -1,0 +1,65 @@
+name: Audit Germany eForms publication date paths
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-germany-date-audit.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download July 2026 official export only
+        run: |
+          mkdir -p audit
+          gh release download tender-raw-germany-v1 --pattern 'germany_2026-07.zip' --dir audit --clobber
+          ls -lh audit
+      - name: Inspect date tags and paths on real eForms XML
+        run: |
+          python - <<'PY'
+          import zipfile,xml.etree.ElementTree as ET,json,collections,re
+          from pathlib import Path
+          z=next(Path('audit').glob('*.zip'))
+          def local(tag): return tag.rsplit('}',1)[-1]
+          stats={k:collections.Counter() for k in ['IssueDate','RequestedPublicationDate','PublicationDate','NoticePublicationDate']}
+          paths=collections.Counter(); roots=collections.Counter(); examples=[]
+          with zipfile.ZipFile(z) as zz:
+            names=[n for n in zz.namelist() if n.lower().endswith('.xml')][:3000]
+            for idx,n in enumerate(names):
+              root=ET.fromstring(zz.read(n));roots[local(root.tag)]+=1
+              parent={c:p for p in root.iter() for c in p}
+              rec={'file':n,'root':local(root.tag),'dates':[]}
+              for e in root.iter():
+                ln=local(e.tag)
+                if 'date' not in ln.lower(): continue
+                text=(e.text or '').strip()
+                if not text: continue
+                lineage=[ln];p=e
+                for _ in range(5):
+                  p=parent.get(p)
+                  if p is None: break
+                  lineage.append(local(p.tag))
+                path='/'.join(reversed(lineage))
+                if ln in stats: stats[ln][text[:10]]+=1
+                if ln in ('IssueDate','RequestedPublicationDate','PublicationDate','NoticePublicationDate'):
+                  paths[(ln,path)]+=1
+                  if len(rec['dates'])<12:rec['dates'].append({'tag':ln,'value':text,'path':path})
+              if idx<8:examples.append(rec)
+          report={
+            'sample_xml':len(names),
+            'root_types':roots.most_common(),
+            'date_value_year_month':{k:collections.Counter(v[:7] for v,c in ctr.items() for _ in range(c)).most_common(30) for k,ctr in stats.items()},
+            'date_paths':[{'tag':k[0],'path':k[1],'count':v} for k,v in paths.most_common(50)],
+            'examples':examples,
+          }
+          Path('audit/germany_date_audit.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
