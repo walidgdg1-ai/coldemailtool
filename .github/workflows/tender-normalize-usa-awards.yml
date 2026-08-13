@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/tender-normalize-usa-awards.yml'
       - 'tools/tender_normalize_usa_awards.py'
+      - 'tools/patch_usa_normalizer_runtime.py'
   workflow_dispatch:
 
 permissions:
@@ -30,6 +31,9 @@ jobs:
 
       - name: Install DuckDB
         run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Apply memory-bounded award finalizer patch
+        run: python tools/patch_usa_normalizer_runtime.py
 
       - name: Ingest FY2023 through FY2026 sequentially to narrow Parquet candidates
         shell: bash
