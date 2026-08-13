@@ -1,0 +1,81 @@
+name: TED full canonical stage
+
+on:
+  workflow_run:
+    workflows: ['TED dual-stack canonicalizer smoke']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-ted-full-stage-v1
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  stage:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Prepare durable stage release and resume checkpoint
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-ted-stage-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'TED Canonical Package Stages v1' \
+              --notes 'Checkpointed per-package canonical stages for the authoritative 45-package TED official bulk archive.' \
+              --target tender-harvest-relay-20260812
+          fi
+          mkdir -p checkpoint
+          gh release download "$TAG" --pattern 'ted-stage-checkpoint.json' --dir checkpoint --clobber || true
+
+      - name: Apply validated linear-time TED runtime patch
+        run: python tools/patch_ted_normalizer_runtime.py
+
+      - name: Canonicalize every missing official package atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARGS=(
+            --raw-release tender-raw-ted-official-bulk-v1
+            --stage-release tender-normalized-ted-stage-v1
+            --normalizer tools/tender_normalize_ted_bulk.py
+            --work ted_stage_work
+          )
+          if [ -f checkpoint/ted-stage-checkpoint.json ]; then
+            ARGS+=(--checkpoint checkpoint/ted-stage-checkpoint.json)
+          fi
+          python tools/ted_stage_orchestrator.py "${ARGS[@]}"
+
+      - name: Read back and validate complete 45-package stage census
+        run: |
+          set -euo pipefail
+          rm -rf readback && mkdir readback
+          gh release download tender-normalized-ted-stage-v1 \
+            --pattern 'ted-stage-summary.json' \
+            --pattern 'ted-stage-checkpoint.json' \
+            --dir readback --clobber
+          cat readback/ted-stage-summary.json
+          python - <<'PY'
+          import json
+          q=json.load(open('readback/ted-stage-summary.json'))
+          assert q['status']=='STAGE_COMPLETE',q
+          assert q['completed_packages']==45,q
+          assert q['expected_packages']==45,q
+          assert q['raw_xml_sum']==2566835,q
+          assert q['stage_tender_row_sum']>0,q
+          assert q['stage_award_row_sum']>0,q
+          print('TED_FULL_STAGE_PASS',q['completed_packages'],q['raw_xml_sum'],q['stage_tender_row_sum'],q['stage_award_row_sum'])
+          PY
