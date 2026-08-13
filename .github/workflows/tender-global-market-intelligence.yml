@@ -43,101 +43,61 @@ jobs:
           t='core/historical_tenders.parquet'; a='core/awards.parquet'; b='core/award_suppliers.parquet'
           out=Path('intel')
 
-          # Factual tender/award cohort base. Currency is retained as a grouping key: no FX mixing.
           con.execute(f"""COPY (
             WITH tend AS (
-              SELECT Warehouse_Source,
-                     coalesce(nullif(Category,''),'UNKNOWN') Category,
-                     coalesce(nullif(Subcategory,''),'UNKNOWN') Subcategory,
-                     coalesce(nullif(Currency,''),'UNKNOWN') Currency,
-                     count(*) Tender_Count,
-                     count(distinct Buyer_ID) Unique_Buyers,
+              SELECT Warehouse_Source,coalesce(nullif(Category,''),'UNKNOWN') Category,coalesce(nullif(Subcategory,''),'UNKNOWN') Subcategory,
+                     coalesce(nullif(Currency,''),'UNKNOWN') Currency,count(*) Tender_Count,count(distinct Buyer_ID) Unique_Buyers,
                      median(try_cast(nullif(Lean_Fit,'') AS DOUBLE)) Median_Lean_Fit,
                      median(try_cast(nullif(Official_Estimated_Value,'') AS DOUBLE)) Median_Estimated_Value,
                      avg(CASE WHEN try_cast(nullif(Official_Estimated_Value,'') AS DOUBLE) IS NOT NULL THEN 1 ELSE 0 END)*100 Estimate_Coverage_Pct
               FROM read_parquet('{t}') GROUP BY 1,2,3,4
             ), aw AS (
-              SELECT tt.Warehouse_Source,
-                     coalesce(nullif(tt.Category,''),'UNKNOWN') Category,
-                     coalesce(nullif(tt.Subcategory,''),'UNKNOWN') Subcategory,
-                     coalesce(nullif(tt.Currency,''),'UNKNOWN') Currency,
-                     count(distinct aa.Award_ID) Award_Count,
-                     count(distinct aa.Supplier_ID) Unique_Award_Suppliers,
-                     median(try_cast(nullif(aa.Award_Value,'') AS DOUBLE)) Median_Award_Value,
+              SELECT tt.Warehouse_Source,coalesce(nullif(tt.Category,''),'UNKNOWN') Category,coalesce(nullif(tt.Subcategory,''),'UNKNOWN') Subcategory,
+                     coalesce(nullif(tt.Currency,''),'UNKNOWN') Currency,count(distinct aa.Award_ID) Award_Count,
+                     count(distinct aa.Supplier_ID) Unique_Award_Suppliers,median(try_cast(nullif(aa.Award_Value,'') AS DOUBLE)) Median_Award_Value,
                      median(try_cast(nullif(aa.Bidder_Count,'') AS DOUBLE)) Median_Bidder_Count,
                      avg(CASE WHEN try_cast(nullif(aa.Bidder_Count,'') AS DOUBLE) IS NOT NULL THEN 1 ELSE 0 END)*100 Bidder_Count_Coverage_Pct,
                      avg(CASE WHEN try_cast(nullif(aa.Bidder_Count,'') AS DOUBLE)=1 THEN 1 ELSE 0 END)*100 Single_Bid_Award_Pct
-              FROM read_parquet('{t}') tt JOIN read_parquet('{a}') aa
-                ON tt.Warehouse_Source=aa.Warehouse_Source AND tt.Historical_Tender_ID=aa.Historical_Tender_ID
+              FROM read_parquet('{t}') tt JOIN read_parquet('{a}') aa ON tt.Warehouse_Source=aa.Warehouse_Source AND tt.Historical_Tender_ID=aa.Historical_Tender_ID
               GROUP BY 1,2,3,4
             )
-            SELECT tend.*,
-                   coalesce(aw.Award_Count,0) Award_Count,
-                   coalesce(aw.Unique_Award_Suppliers,0) Unique_Award_Suppliers,
+            SELECT tend.*,coalesce(aw.Award_Count,0) Award_Count,coalesce(aw.Unique_Award_Suppliers,0) Unique_Award_Suppliers,
                    aw.Median_Award_Value,aw.Median_Bidder_Count,aw.Bidder_Count_Coverage_Pct,aw.Single_Bid_Award_Pct
             FROM tend LEFT JOIN aw USING(Warehouse_Source,Category,Subcategory,Currency)
           ) TO 'intel/cohort_facts.csv' (HEADER)""")
 
-          # Supplier concentration at award-count grain. One award can link to several suppliers;
-          # we fractionalize each award across its supplier links so consortium awards do not overcount.
           con.execute(f"""COPY (
             WITH bridge AS (
-              SELECT Warehouse_Source,Award_ID,Supplier_ID,
-                     1.0/count(*) OVER (PARTITION BY Warehouse_Source,Award_ID) AS Fractional_Award
+              SELECT Warehouse_Source,Award_ID,Supplier_ID,1.0/count(*) OVER (PARTITION BY Warehouse_Source,Award_ID) AS Fractional_Award
               FROM read_parquet('{b}')
             ), sx AS (
-              SELECT tt.Warehouse_Source,
-                     coalesce(nullif(tt.Category,''),'UNKNOWN') Category,
-                     coalesce(nullif(tt.Subcategory,''),'UNKNOWN') Subcategory,
-                     coalesce(nullif(tt.Currency,''),'UNKNOWN') Currency,
-                     br.Supplier_ID,sum(br.Fractional_Award) Fractional_Awards
-              FROM read_parquet('{a}') aa
-              JOIN read_parquet('{t}') tt ON tt.Warehouse_Source=aa.Warehouse_Source AND tt.Historical_Tender_ID=aa.Historical_Tender_ID
-              JOIN bridge br ON br.Warehouse_Source=aa.Warehouse_Source AND br.Award_ID=aa.Award_ID
-              GROUP BY 1,2,3,4,5
+              SELECT tt.Warehouse_Source,coalesce(nullif(tt.Category,''),'UNKNOWN') Category,coalesce(nullif(tt.Subcategory,''),'UNKNOWN') Subcategory,
+                     coalesce(nullif(tt.Currency,''),'UNKNOWN') Currency,br.Supplier_ID,sum(br.Fractional_Award) Fractional_Awards
+              FROM read_parquet('{a}') aa JOIN read_parquet('{t}') tt ON tt.Warehouse_Source=aa.Warehouse_Source AND tt.Historical_Tender_ID=aa.Historical_Tender_ID
+              JOIN bridge br ON br.Warehouse_Source=aa.Warehouse_Source AND br.Award_ID=aa.Award_ID GROUP BY 1,2,3,4,5
             ), shares AS (
-              SELECT *,Fractional_Awards/sum(Fractional_Awards) OVER(PARTITION BY Warehouse_Source,Category,Subcategory,Currency) Share
-              FROM sx
+              SELECT *,Fractional_Awards/sum(Fractional_Awards) OVER(PARTITION BY Warehouse_Source,Category,Subcategory,Currency) AS Supplier_Share FROM sx
             )
-            SELECT Warehouse_Source,Category,Subcategory,Currency,
-                   count(*) Supplier_Count,
-                   max(Share)*100 Top_Supplier_Share_Pct,
-                   sum(Share*Share)*10000 Supplier_HHI,
-                   CASE WHEN sum(Share*Share)*10000 < 1500 THEN 'FRAGMENTED'
-                        WHEN sum(Share*Share)*10000 < 2500 THEN 'MODERATE'
-                        ELSE 'CONCENTRATED' END Supplier_Concentration
+            SELECT Warehouse_Source,Category,Subcategory,Currency,count(*) Supplier_Count,max(Supplier_Share)*100 Top_Supplier_Share_Pct,
+                   sum(Supplier_Share*Supplier_Share)*10000 Supplier_HHI,
+                   CASE WHEN sum(Supplier_Share*Supplier_Share)*10000 < 1500 THEN 'FRAGMENTED'
+                        WHEN sum(Supplier_Share*Supplier_Share)*10000 < 2500 THEN 'MODERATE' ELSE 'CONCENTRATED' END Supplier_Concentration
             FROM shares GROUP BY 1,2,3,4
           ) TO 'intel/supplier_fragmentation.csv' (HEADER)""")
 
-          # Repeat buyers: useful for recurring-procurement targeting and category recurrence.
           con.execute(f"""COPY (
             WITH x AS (
-              SELECT Warehouse_Source,Buyer_ID,
-                     any_value(Buyer_Name) Buyer_Name,
-                     coalesce(nullif(Category,''),'UNKNOWN') Category,
-                     coalesce(nullif(Subcategory,''),'UNKNOWN') Subcategory,
-                     count(*) Tender_Count,
-                     min(try_cast(Publication_Date AS DATE)) First_Publication_Date,
-                     max(try_cast(Publication_Date AS DATE)) Last_Publication_Date,
+              SELECT Warehouse_Source,Buyer_ID,any_value(Buyer_Name) Buyer_Name,coalesce(nullif(Category,''),'UNKNOWN') Category,
+                     coalesce(nullif(Subcategory,''),'UNKNOWN') Subcategory,count(*) Tender_Count,
+                     min(try_cast(Publication_Date AS DATE)) First_Publication_Date,max(try_cast(Publication_Date AS DATE)) Last_Publication_Date,
                      median(try_cast(nullif(Official_Estimated_Value,'') AS DOUBLE)) Median_Estimated_Value,
                      any_value(coalesce(nullif(Currency,''),'UNKNOWN')) Currency
-              FROM read_parquet('{t}')
-              WHERE nullif(Buyer_ID,'') IS NOT NULL
-              GROUP BY 1,2,4,5
+              FROM read_parquet('{t}') WHERE nullif(Buyer_ID,'') IS NOT NULL GROUP BY 1,2,4,5
             )
-            SELECT *,
-                   CASE WHEN Tender_Count>=20 THEN 'VERY_HIGH_REPEAT'
-                        WHEN Tender_Count>=10 THEN 'HIGH_REPEAT'
-                        WHEN Tender_Count>=5 THEN 'REPEAT'
-                        ELSE 'LOW_REPEAT' END Repeat_Band,
-                   'DERIVED_FROM_VALIDATED_CANONICAL_ROWS' Derived_Status
-            FROM x WHERE Tender_Count>=3
-            ORDER BY Tender_Count DESC
+            SELECT *,CASE WHEN Tender_Count>=20 THEN 'VERY_HIGH_REPEAT' WHEN Tender_Count>=10 THEN 'HIGH_REPEAT' WHEN Tender_Count>=5 THEN 'REPEAT' ELSE 'LOW_REPEAT' END Repeat_Band,
+                   'DERIVED_FROM_VALIDATED_CANONICAL_ROWS' Derived_Status FROM x WHERE Tender_Count>=3 ORDER BY Tender_Count DESC
           ) TO 'intel/repeat_buyers.csv' (HEADER)""")
 
-          # Opportunity score uses percentile ranks rather than raw currencies, and competition
-          # contributes only when bidder coverage is material. This is a prioritization heuristic,
-          # explicitly not an official procurement metric.
           con.execute("""COPY (
             WITH f AS (SELECT * FROM read_csv_auto('intel/cohort_facts.csv',header=true)),
             s AS (SELECT * FROM read_csv_auto('intel/supplier_fragmentation.csv',header=true)),
@@ -149,15 +109,11 @@ jobs:
                      percent_rank() OVER (PARTITION BY f.Warehouse_Source ORDER BY -coalesce(s.Supplier_HHI,10000)) Fragmentation_Pct
               FROM f LEFT JOIN s USING(Warehouse_Source,Category,Subcategory,Currency)
             )
-            SELECT *,
-              round(100*(0.35*Vol_Pct + 0.20*BuyerBreadth_Pct + 0.20*Lean_Pct + 0.15*Fragmentation_Pct +
-                0.10*CASE WHEN Bidder_Count_Coverage_Pct>=30 AND Median_Bidder_Count IS NOT NULL
-                          THEN greatest(0.0,least(1.0,(8.0-Median_Bidder_Count)/7.0)) ELSE 0.5 END),2) AS Lean_Opportunity_Score,
+            SELECT *,round(100*(0.35*Vol_Pct + 0.20*BuyerBreadth_Pct + 0.20*Lean_Pct + 0.15*Fragmentation_Pct +
+                0.10*CASE WHEN Bidder_Count_Coverage_Pct>=30 AND Median_Bidder_Count IS NOT NULL THEN greatest(0.0,least(1.0,(8.0-Median_Bidder_Count)/7.0)) ELSE 0.5 END),2) AS Lean_Opportunity_Score,
               CASE WHEN Bidder_Count_Coverage_Pct>=30 THEN 'COMPETITION_OBSERVED' ELSE 'COMPETITION_LOW_COVERAGE' END Competition_Evidence_Status,
               'DERIVED_HEURISTIC_V1' Derived_Status
-            FROM j
-            WHERE Tender_Count>=5
-            ORDER BY Lean_Opportunity_Score DESC,Tender_Count DESC
+            FROM j WHERE Tender_Count>=5 ORDER BY Lean_Opportunity_Score DESC,Tender_Count DESC
           ) TO 'intel/market_opportunity_rank.csv' (HEADER)""")
 
           counts={f.name:con.execute(f"SELECT count(*) FROM read_csv_auto('{f}',header=true)").fetchone()[0] for f in out.glob('*.csv')}
@@ -166,7 +122,7 @@ jobs:
           manifest={'version':quality['version'],'created_at':quality['created_at'],'files':{}}
           for p in out.iterdir():
               if p.is_file() and p.name!='run_manifest.json':
-                  b=p.read_bytes();manifest['files'][p.name]={'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()}
+                  bb=p.read_bytes();manifest['files'][p.name]={'bytes':len(bb),'sha256':hashlib.sha256(bb).hexdigest()}
           (out/'run_manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
           print(json.dumps(quality,indent=2))
           PY
