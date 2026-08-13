@@ -1,0 +1,51 @@
+name: Probe current official AusTender OCDS API
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/austender-ocds-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Probe bounded current publication-date windows
+        run: |
+          python - <<'PY'
+          import urllib.request,json,datetime
+          base='https://api.tenders.gov.au/ocds/findByDates/contractPublished'
+          headers={'User-Agent':'PublicTenderIntelligence/1.0','Accept':'application/json'}
+          windows=[('2026-08-01T00:00:00Z','2026-08-02T00:00:00Z'),('2026-07-01T00:00:00Z','2026-07-02T00:00:00Z')]
+          for a,b in windows:
+              u=f'{base}/{a}/{b}'
+              try:
+                  req=urllib.request.Request(u,headers=headers)
+                  with urllib.request.urlopen(req,timeout=60) as r:
+                      raw=r.read(25_000_000)
+                      print('HTTP',r.status,'URL',u,'BYTES',len(raw),'TYPE',r.headers.get('content-type'))
+                  x=json.loads(raw.decode('utf-8-sig'))
+                  print('ROOT_TYPE',type(x).__name__)
+                  if isinstance(x,dict):
+                      print('ROOT_KEYS',list(x.keys()))
+                      print('SAMPLE',json.dumps(x,ensure_ascii=False)[:12000])
+                      # OCDS release packages commonly expose releases[] and optional links/meta.
+                      rel=x.get('releases') or x.get('records') or x.get('results') or []
+                      print('ROW_COUNT_HINT',len(rel) if isinstance(rel,list) else type(rel).__name__)
+                      for k in ('links','pagination','meta','page','next'):
+                          if k in x: print(k.upper(),json.dumps(x[k],ensure_ascii=False)[:3000])
+                  elif isinstance(x,list):
+                      print('ROOT_LEN',len(x));print('SAMPLE',json.dumps(x[:1],ensure_ascii=False)[:12000])
+                  print('AUSTENDER_PROBE_PASS',a,b)
+                  break
+              except Exception as e:
+                  print('WINDOW_ERROR',a,b,repr(e))
+          else: raise SystemExit('No current AusTender API window succeeded')
+          PY
