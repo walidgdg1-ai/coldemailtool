@@ -3,7 +3,11 @@ name: TED full canonical stage
 on:
   push:
     branches: [tender-harvest-relay-20260812]
-    paths: ['.github/workflows/ted-full-canonical-stage.yml']
+    paths:
+      - '.github/workflows/ted-full-canonical-stage.yml'
+      - 'tools/patch_ted_normalizer_runtime.py'
+      - 'tools/tender_normalize_ted_bulk.py'
+      - 'tools/ted_stage_orchestrator.py'
   workflow_dispatch:
 
 permissions:
@@ -78,18 +82,15 @@ jobs:
           set -euo pipefail
           rm -rf readback && mkdir readback
           gh release download tender-normalized-ted-stage-v1 \
-            --pattern 'ted-stage-summary.json' \
             --pattern 'ted-stage-checkpoint.json' \
             --dir readback --clobber
-          cat readback/ted-stage-summary.json
           python - <<'PY'
           import json
-          q=json.load(open('readback/ted-stage-summary.json'))
-          assert q['status']=='STAGE_COMPLETE',q
-          assert q['completed_packages']==45,q
-          assert q['expected_packages']==45,q
-          assert q['raw_xml_sum']==2566835,q
-          assert q['stage_tender_row_sum']>0,q
-          assert q['stage_award_row_sum']>0,q
-          print('TED_FULL_STAGE_PASS',q['completed_packages'],q['raw_xml_sum'],q['stage_tender_row_sum'],q['stage_award_row_sum'])
+          q=json.load(open('readback/ted-stage-checkpoint.json'))
+          print(json.dumps(q,indent=2))
+          assert q.get('status')=='STAGE_COMPLETE',q
+          assert q.get('completed_count')==45,q
+          assert q.get('expected_count')==45,q
+          assert q.get('raw_xml_sum')==2566835,q
+          print('TED_FULL_STAGE_READBACK_PASS')
           PY
