@@ -1,0 +1,128 @@
+name: Chain TED result census from 150k checkpoint
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/ted-continuation-harvest-v3.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-ted-result-continuation-v3
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Download exact prior checkpoint
+        run: |
+          set -euo pipefail
+          mkdir -p checkpoint
+          gh release download tender-ted-result-continuation-v2 --pattern 'ted-result-checkpoint.json' --dir checkpoint --clobber
+          cat checkpoint/ted-result-checkpoint.json
+      - name: Prepare chained continuation release
+        run: |
+          set -euo pipefail
+          TAG='tender-ted-result-continuation-v3'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'TED RESULT census continuation v3' \
+              --notes 'Chained official TED Search API ITERATION continuation from the persisted 150k checkpoint. Fixed census window 2023-08-11 through 2026-08-11. Sharded raw + normalized assets with checksums and resumable checkpoint.' \
+              --target "$GITHUB_SHA"
+          fi
+      - name: Continue exact ITERATION cursor and commit 10 x 5k shards
+        run: |
+          python - <<'PY'
+          import csv,gzip,hashlib,json,pathlib,subprocess,time,urllib.error,urllib.request
+
+          API='https://api.ted.europa.eu/v3/notices/search'
+          TAG='tender-ted-result-continuation-v3'
+          QUERY='form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC'
+          QUERY_FP='sha256:7c0e5ee5be6ec4b1c81d1c67f2318056c8ffe86897d114707c40f488e32c8cd5'
+          cp=json.load(open('checkpoint/ted-result-checkpoint.json',encoding='utf-8'))
+          if cp.get('query_fingerprint') != QUERY_FP: raise RuntimeError(f'Checkpoint fingerprint mismatch: {cp.get("query_fingerprint")}')
+          if cp.get('status') != 'READY_TO_CONTINUE': raise RuntimeError(f'Checkpoint not resumable: {cp.get("status")}')
+          TOKEN=cp['iteration_next_token']; START_PAGE=int(cp['next_page']); BASE_ARCHIVED=int(cp['cumulative_archived_records'])
+          if BASE_ARCHIVED != 150000: raise RuntimeError(f'Expected 150000 base records, got {BASE_ARCHIVED}')
+          FIELDS=['publication-number','publication-date','notice-identifier','notice-title','form-type','notice-type','procedure-identifier','procedure-type','buyer-name','buyer-country','classification-cpv','title-proc','description-proc','estimated-value-proc','estimated-value-cur-proc','result-lot-identifier','result-value-lot','result-value-cur-lot','result-value-notice','result-value-cur-notice','tender-identifier','tender-lot-identifier','tender-value','tender-value-cur','winner-name','winner-country','winner-identifier','winner-decision-date','winner-selection-status','received-submissions-type-code','received-submissions-type-val']
+          PAGE_SIZE=250; PAGES_PER_SHARD=20; SHARDS=10
+          outdir=pathlib.Path('ted_continuation_v3'); outdir.mkdir(exist_ok=True)
+
+          def post(token,limit=PAGE_SIZE,retries=7):
+            payload={'query':QUERY,'fields':FIELDS,'paginationMode':'ITERATION','limit':limit,'iterationNextToken':token}; body=json.dumps(payload).encode()
+            for attempt in range(retries):
+              req=urllib.request.Request(API,data=body,headers={'Content-Type':'application/json','Accept':'application/json'},method='POST')
+              try:
+                with urllib.request.urlopen(req,timeout=120) as r:
+                  obj=json.loads(r.read())
+                  if r.status!=200: raise RuntimeError(f'HTTP {r.status}')
+                  return obj
+              except urllib.error.HTTPError as e:
+                msg=e.read().decode('utf-8','replace')
+                if e.code in (429,500,502,503,504) and attempt<retries-1: time.sleep(min(30,2**attempt)); continue
+                raise RuntimeError(f'TED HTTP {e.code}: {msg[:8000]}')
+              except Exception:
+                if attempt<retries-1: time.sleep(min(30,2**attempt)); continue
+                raise
+
+          def sha(path):
+            h=hashlib.sha256()
+            with open(path,'rb') as f:
+              for b in iter(lambda:f.read(1024*1024),b''): h.update(b)
+            return h.hexdigest()
+          def cell(v):
+            if v is None:return ''
+            if isinstance(v,(dict,list)):return json.dumps(v,ensure_ascii=False,separators=(',',':'))
+            return str(v)
+
+          test=post(TOKEN,limit=1)
+          if not (isinstance(test,dict) and test.get('notices')): raise RuntimeError('TED chained checkpoint preflight returned no notices')
+          print('CHAIN_PREFLIGHT_PASS','page',START_PAGE,'base',BASE_ARCHIVED,'first',test['notices'][0].get('publication-number'))
+          token=TOKEN; committed=0; last_page=START_PAGE-1; global_seen=set()
+          for s in range(SHARDS):
+            page_start=START_PAGE+s*PAGES_PER_SHARD; page_end=page_start+PAGES_PER_SHARD-1; notices=[]; shard_start_token=token; total_count=None
+            for page in range(page_start,page_end+1):
+              obj=post(token); batch=obj.get('notices') or []
+              if len(batch)!=PAGE_SIZE: raise RuntimeError(f'Expected {PAGE_SIZE} notices at logical page {page}, got {len(batch)}')
+              nxt=obj.get('iterationNextToken')
+              if not nxt: raise RuntimeError(f'Missing next token at page {page}')
+              if total_count is None: total_count=obj.get('totalNoticeCount')
+              notices.extend(batch); token=nxt; last_page=page
+              print('page',page,'records',len(batch),'cumulative_new',committed+len(notices))
+            pubnums=[]
+            for n in notices:
+              pn=n.get('publication-number') if isinstance(n,dict) else None
+              if isinstance(pn,list): pn=pn[0] if pn else None
+              if not pn: raise RuntimeError('Missing publication-number in shard')
+              pubnums.append(str(pn))
+            if len(pubnums)!=5000 or len(set(pubnums))!=5000: raise RuntimeError(f'Shard uniqueness failure rows={len(pubnums)} unique={len(set(pubnums))}')
+            overlap=len(global_seen.intersection(pubnums))
+            if overlap: raise RuntimeError(f'Cross-shard duplicate publication numbers: {overlap}')
+            global_seen.update(pubnums)
+            stem=f'ted-result-p{page_start:04d}-{page_end:04d}'; rawp=outdir/f'{stem}.raw.jsonl.gz'; normp=outdir/f'{stem}.normalized.csv.gz'; manp=outdir/f'{stem}.manifest.json'
+            with gzip.open(rawp,'wt',encoding='utf-8',newline='') as f:
+              for n in notices:f.write(json.dumps(n,ensure_ascii=False,separators=(',',':'))+'\n')
+            with gzip.open(normp,'wt',encoding='utf-8',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=FIELDS+['source_urls_json'],extrasaction='ignore'); w.writeheader()
+              for n in notices:
+                row={k:cell(n.get(k)) for k in FIELDS}; row['source_urls_json']=cell(n.get('links') or n.get('urls') or n.get('_links')); w.writerow(row)
+            manifest={'schema_version':'TED_SEARCH_ITERATION_CONTINUATION_V1','source':'TED Search API v3','query':QUERY,'query_fingerprint':QUERY_FP,'window_start':'2023-08-11','window_end':'2026-08-11','pagination_mode':'ITERATION','page_size':PAGE_SIZE,'page_start':page_start,'page_end':page_end,'source_record_count':len(notices),'normalized_row_count':len(notices),'duplicate_count':0,'source_total_notice_count':total_count,'base_archived_before_continuation':BASE_ARCHIVED,'cumulative_archived_after_shard':BASE_ARCHIVED+committed+len(notices),'raw_file':{'name':rawp.name,'bytes':rawp.stat().st_size,'sha256':sha(rawp)},'normalized_file':{'name':normp.name,'bytes':normp.stat().st_size,'sha256':sha(normp)},'start_token_sha256':hashlib.sha256(shard_start_token.encode()).hexdigest(),'next_token':token,'status':'COMPLETE'}
+            manp.write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+            checkpoint={'source':'TED','phase':'AWARD_NOTICE_UNIVERSE','query':QUERY,'query_fingerprint':QUERY_FP,'window_start':'2023-08-11','window_end':'2026-08-11','pagination_mode':'ITERATION','page_size':PAGE_SIZE,'pages_completed':page_end,'next_page':page_end+1,'iteration_next_token':token,'cumulative_archived_records':BASE_ARCHIVED+committed+len(notices),'source_total_notice_count':total_count,'last_committed_shard':stem,'status':'READY_TO_CONTINUE'}
+            cpp=outdir/'ted-result-checkpoint.json'; cpp.write_text(json.dumps(checkpoint,ensure_ascii=False,indent=2),encoding='utf-8')
+            for p in (rawp,normp,manp,cpp): subprocess.run(['gh','release','upload',TAG,str(p),'--clobber'],check=True)
+            committed+=len(notices); print('COMMITTED',stem,'overall',BASE_ARCHIVED+committed)
+          final={'new_records_committed':committed,'base_records':BASE_ARCHIVED,'cumulative_records':BASE_ARCHIVED+committed,'last_page':last_page,'next_page':last_page+1,'next_token':token,'query_fingerprint':QUERY_FP,'status':'COMPLETE'}
+          sp=outdir/'ted-result-continuation-summary.json'; sp.write_text(json.dumps(final,ensure_ascii=False,indent=2),encoding='utf-8'); subprocess.run(['gh','release','upload',TAG,str(sp),'--clobber'],check=True); print(json.dumps(final,indent=2))
+          PY
+      - name: Read back release asset inventory
+        run: gh release view tender-ted-result-continuation-v3 --json tagName,url,assets
