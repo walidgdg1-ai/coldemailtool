@@ -20,7 +20,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Capture app-generated publication-date range payload
+      - name: Probe public date-picker year navigation
         run: |
           python - <<'PY'
           import asyncio
@@ -30,35 +30,32 @@ jobs:
             async with async_playwright() as p:
               browser=await p.chromium.launch(headless=True)
               page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1400})
-              requests=[]
-              page.on('request',lambda req: requests.append(req.post_data) if API in req.url.lower() else None)
               async with page.expect_response(lambda r: API in r.url.lower(),timeout=90000) as first_info:
                 await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
               first=await first_info.value
               assert first.status==200,first.status
-              await page.wait_for_timeout(1200)
-              field=page.locator('input').nth(6)
-              await field.click()
+              await page.wait_for_timeout(1000)
+              await page.locator('input').nth(6).click()
               dialog=page.locator('[role="dialog"]').last
               await dialog.wait_for(state='visible',timeout=10000)
-              await page.wait_for_timeout(600)
+              await page.wait_for_timeout(500)
               buttons=dialog.locator('button')
               texts=await buttons.all_inner_texts()
-              print('DATE_BUTTONS',texts)
-              assert len(buttons) if False else True
-              assert len(texts)>=8 and texts[6].strip()=='1' and texts[7].strip()=='2',texts
-              await buttons.nth(6).click()
-              await buttons.nth(7).click()
-              async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000) as filtered_info:
-                await dialog.get_by_text('OK',exact=True).click()
-              filtered=await filtered_info.value
-              assert filtered.status==200,filtered.status
-              print('FIELD_VALUE',repr(await field.input_value()))
-              print('APP_GENERATED_FILTER_BODY',requests[-1] if requests else None)
-              body=await filtered.json(); pubs=body.get('publications') or []
-              dates=[x.get('publicationDate') for x in pubs if x.get('publicationDate')]
-              print('FILTERED_RESULT_COUNT',len(pubs),'NEWEST',max(dates) if dates else None,'OLDEST',min(dates) if dates else None)
-              assert requests and 'page' in (requests[-1] or ''),requests
+              print('DATE_VIEW_BUTTONS',texts)
+              assert len(texts)>5 and texts[4].strip()=='2026',texts
+              await buttons.nth(4).click()
+              await page.wait_for_timeout(500)
+              year_texts=await dialog.locator('button').all_inner_texts()
+              print('YEAR_VIEW_BUTTONS',year_texts)
+              years=[(i,t.strip()) for i,t in enumerate(year_texts) if t.strip().isdigit() and len(t.strip())==4]
+              print('YEAR_CHOICES',years)
+              candidates=[x for x in years if x[1]=='2023']
+              assert candidates,years
+              await dialog.locator('button').nth(candidates[0][0]).click()
+              await page.wait_for_timeout(500)
+              after=await dialog.locator('button').all_inner_texts()
+              print('AFTER_2023_BUTTONS',after)
+              print('DIALOG_TEXT_AFTER_2023',repr((await dialog.inner_text())[:4000]))
               await browser.close()
           asyncio.run(main())
           PY
