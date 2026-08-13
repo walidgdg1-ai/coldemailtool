@@ -1,4 +1,4 @@
-name: Rescue Belgium BDA month 2024-03
+name: Rescue Belgium BDA month 2024-05
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 env:
   GH_TOKEN: ${{ github.token }}
   RAW_TAG: tender-raw-belgium-monthly-v2
-  MONTH: '2024-03'
+  MONTH: '2024-05'
 
 jobs:
   rescue:
@@ -30,11 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           NAMES=$(gh release view "$RAW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          if printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.jsonl.gz" && printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.manifest.json"; then
-            echo 'skip=yes' >> "$GITHUB_OUTPUT"
-          else
-            echo 'skip=no' >> "$GITHUB_OUTPUT"
-          fi
+          if printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.jsonl.gz" && printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.manifest.json"; then echo 'skip=yes' >> "$GITHUB_OUTPUT"; else echo 'skip=no' >> "$GITHUB_OUTPUT"; fi
       - name: Install anonymous browser
         if: steps.existing.outputs.skip != 'yes'
         run: |
@@ -61,8 +57,7 @@ jobs:
           p=Path(out)/f'belgium-bda-{month}.manifest.json';r=Path(out)/f'belgium-bda-{month}.jsonl.gz'
           if not p.exists() or not r.exists(): raise SystemExit('month raw/manifest missing')
           q=json.loads(p.read_text(encoding='utf-8'))
-          assert q['publicationDateFrom']==month+'-01',q
-          assert q['rows']>0 and q['pages']>0,q
+          assert q['publicationDateFrom']==month+'-01' and q['rows']>0 and q['pages']>0,q
           print('BELGIUM_MONTH_RESCUE_MATERIALIZED',month,q['pages'],q['rows'])
           PY
             then SUCCESS=yes; break; fi
@@ -77,4 +72,3 @@ jobs:
           NAMES=$(gh release view "$RAW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.jsonl.gz"
           printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.manifest.json"
-          echo "BELGIUM_MONTH_RESCUE_READBACK_PASS=$MONTH"
