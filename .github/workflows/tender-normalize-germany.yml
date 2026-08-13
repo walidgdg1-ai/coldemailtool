@@ -7,7 +7,8 @@ on:
       - 'tools/tender_normalize_germany.py'
       - 'tools/patch_germany_normalizer_runtime.py'
   workflow_dispatch:
-permissions: {contents: write}
+permissions:
+  contents: write
 concurrency:
   group: tender-normalize-germany-v1
   cancel-in-progress: false
@@ -15,6 +16,8 @@ jobs:
   normalize:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,7 +25,6 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check -q pandas
       - name: Download official Germany monthly eForms exports
-        env: {GH_TOKEN: '${{ github.token }}'}
         run: |
           set -euo pipefail
           mkdir -p raw/germany
@@ -35,7 +37,6 @@ jobs:
       - name: Normalize eForms to canonical relational warehouse
         run: python tools/tender_normalize_germany.py --raw-dir raw/germany --out normalized/germany --start 2023-08-01 --end 2026-07-31
       - name: Persist pre-validation QA
-        env: {GH_TOKEN: '${{ github.token }}'}
         run: |
           set -euo pipefail
           TAG='tender-germany-qa-v1'
@@ -49,23 +50,27 @@ jobs:
           import json,pandas as pd
           q=json.load(open('normalized/germany/data_quality.json'))
           print(json.dumps(q,indent=2,ensure_ascii=False))
-          assert q['normalized_tenders'] > 10000, q
-          assert q['award_groups'] > 1000, q
-          assert q['unique_buyers'] > 500, q
-          assert q['parse_errors']/max(q['raw_xml'],1) < .01, q
+          assert q['raw_xml'] > 500000, q
+          assert q['normalized_tenders'] > 200000, q
+          assert q['award_groups'] > 50000, q
+          assert q['unique_buyers'] > 5000, q
+          assert q['publication_date_coverage_pct'] > 99, q
+          assert q['bidder_count_coverage_pct'] > 50, q
+          assert q.get('parse_errors',0)/max(q['raw_xml'],1) < .01, q
           assert all(q['integrity'].values()), q['integrity']
-          t=pd.read_csv('normalized/germany/historical_tenders.csv.gz')
-          a=pd.read_csv('normalized/germany/awards.csv.gz')
-          b=pd.read_csv('normalized/germany/award_suppliers.csv.gz')
+          t=pd.read_csv('normalized/germany/historical_tenders.csv.gz',low_memory=False)
+          a=pd.read_csv('normalized/germany/awards.csv.gz',low_memory=False)
+          b=pd.read_csv('normalized/germany/award_suppliers.csv.gz',low_memory=False)
           assert t.Historical_Tender_ID.is_unique
           assert a.Award_ID.is_unique
           if len(b):
-            multi=set(a.loc[a.Supplier_Count.fillna(0)>1,'Award_ID'])
-            assert b.loc[b.Award_ID.isin(multi),'Award_Value_Allocated'].isna().all()
-          print('GERMANY_CANONICAL_VALIDATION_PASS')
+            assert not b.duplicated(['Award_ID','Supplier_ID']).any()
+            multi=set(b.groupby('Award_ID')['Supplier_ID'].nunique().loc[lambda x:x>1].index)
+            if multi:
+              assert b.loc[b.Award_ID.isin(multi),'Award_Value_Allocated'].isna().all()
+          print('GERMANY_CANONICAL_VALIDATION_PASS',len(t),len(a),len(b),q['bidder_count_coverage_pct'])
           PY
       - name: Publish normalized Germany warehouse
-        env: {GH_TOKEN: '${{ github.token }}'}
         run: |
           set -euo pipefail
           TAG='tender-normalized-germany-v1'
