@@ -55,7 +55,6 @@ jobs:
           buyer_id=f"CASE WHEN nullif({buyer_norm},'') IS NULL THEN NULL ELSE 'buy_'||substr(sha256(Warehouse_Source||'|'||{buyer_norm}),1,20) END"
           supplier_id=f"CASE WHEN nullif({supplier_norm},'') IS NULL THEN NULL ELSE 'sup_'||substr(sha256(Warehouse_Source||'|'||{supplier_norm}||'|'||upper(coalesce(nullif(Supplier_Country,''),'UNKNOWN'))),1,20) END"
 
-          # Tender facts: preserve every row and old ID for lineage, replace canonical Buyer_ID.
           con.execute(f"""COPY (
             SELECT * EXCLUDE(Buyer_ID),
                    Buyer_ID AS Source_Buyer_ID,
@@ -63,8 +62,6 @@ jobs:
             FROM read_parquet('{t}')
           ) TO 'v2/historical_tenders.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
 
-          # Awards inherit the buyer from their canonical tender relationship rather than trusting
-          # historically collided award.Buyer_ID. Supplier IDs are rebuilt only when a supplier name is present.
           award_supplier_norm=norm_expr('aa.Supplier_Name')
           award_supplier_id=f"CASE WHEN nullif({award_supplier_norm},'') IS NULL THEN NULL ELSE 'sup_'||substr(sha256(aa.Warehouse_Source||'|'||{award_supplier_norm}||'|'||upper(coalesce(nullif(aa.Supplier_Country,''),'UNKNOWN'))),1,20) END"
           con.execute(f"""COPY (
@@ -79,8 +76,6 @@ jobs:
              AND aa.Historical_Tender_ID=tt.Historical_Tender_ID
           ) TO 'v2/awards.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
 
-          # Supplier bridge is the authoritative supplier membership grain. Re-key and collapse only
-          # exact same award+new supplier identity duplicates; never sum duplicated allocations.
           bridge_supplier_norm=norm_expr('Supplier_Name')
           bridge_supplier_id=f"CASE WHEN nullif({bridge_supplier_norm},'') IS NULL THEN NULL ELSE 'sup_'||substr(sha256(Warehouse_Source||'|'||{bridge_supplier_norm}||'|'||upper(coalesce(nullif(Supplier_Country,''),'UNKNOWN'))),1,20) END"
           con.execute(f"""COPY (
@@ -101,7 +96,6 @@ jobs:
             GROUP BY Warehouse_Source,Award_ID,New_Supplier_ID
           ) TO 'v2/award_suppliers.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
 
-          # Rebuild buyers exclusively from repaired tender/award facts.
           con.execute("""COPY (
             WITH tc AS (
               SELECT Warehouse_Source,Buyer_ID,
@@ -130,8 +124,6 @@ jobs:
             FROM tc LEFT JOIN ac USING(Warehouse_Source,Buyer_ID)
           ) TO 'v2/buyers.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
 
-          # Rebuild suppliers from repaired bridge membership. Monetary totals use only allocated
-          # values; group totals are not duplicated across consortium members.
           con.execute("""COPY (
             WITH s AS (
               SELECT Warehouse_Source,Supplier_ID,
@@ -152,11 +144,9 @@ jobs:
             FROM s
           ) TO 'v2/suppliers.parquet' (FORMAT PARQUET,COMPRESSION ZSTD)""")
 
-          # Export portable gzip CSV companions.
           for name in ['historical_tenders','awards','award_suppliers','buyers','suppliers']:
               con.execute(f"COPY (SELECT * FROM read_parquet('v2/{name}.parquet')) TO 'v2/{name}.csv.gz' (HEADER,COMPRESSION GZIP)")
 
-          # Strong integrity / preservation gates.
           q={}
           q['tenders']=con.execute("SELECT count(*) FROM read_parquet('v2/historical_tenders.parquet')").fetchone()[0]
           q['awards']=con.execute("SELECT count(*) FROM read_parquet('v2/awards.parquet')").fetchone()[0]
@@ -171,18 +161,22 @@ jobs:
           q['award_tender_orphans']=con.execute("SELECT count(*) FROM read_parquet('v2/awards.parquet') a LEFT JOIN read_parquet('v2/historical_tenders.parquet') t USING(Warehouse_Source,Historical_Tender_ID) WHERE t.Historical_Tender_ID IS NULL").fetchone()[0]
           q['award_buyer_fk_orphans']=con.execute("SELECT count(*) FROM read_parquet('v2/awards.parquet') a LEFT JOIN read_parquet('v2/buyers.parquet') x USING(Warehouse_Source,Buyer_ID) WHERE a.Buyer_ID IS NOT NULL AND x.Buyer_ID IS NULL").fetchone()[0]
           q['bridge_supplier_fk_orphans']=con.execute("SELECT count(*) FROM read_parquet('v2/award_suppliers.parquet') b LEFT JOIN read_parquet('v2/suppliers.parquet') s USING(Warehouse_Source,Supplier_ID) WHERE s.Supplier_ID IS NULL").fetchone()[0]
-          q['source_buyer_collision_keys_v2']=con.execute("SELECT count(*) FROM (SELECT Warehouse_Source,Buyer_ID,count(distinct Buyer_Name) n FROM read_parquet('v2/historical_tenders.parquet') WHERE Buyer_ID IS NOT NULL GROUP BY 1,2 HAVING n>1)").fetchone()[0]
-          q['source_supplier_collision_keys_v2']=con.execute("SELECT count(*) FROM (SELECT Warehouse_Source,Supplier_ID,count(distinct Supplier_Name) n FROM read_parquet('v2/award_suppliers.parquet') GROUP BY 1,2 HAVING n>1)").fetchone()[0]
+          buyer_norm_sql="lower(trim(regexp_replace(strip_accents(coalesce(Buyer_Name,'')), '[^A-Za-z0-9]+', ' ', 'g')))"
+          supplier_norm_sql="lower(trim(regexp_replace(strip_accents(coalesce(Supplier_Name,'')), '[^A-Za-z0-9]+', ' ', 'g')))"
+          q['raw_buyer_name_variant_keys']=con.execute("SELECT count(*) FROM (SELECT Warehouse_Source,Buyer_ID,count(distinct Buyer_Name) n FROM read_parquet('v2/historical_tenders.parquet') WHERE Buyer_ID IS NOT NULL GROUP BY 1,2 HAVING n>1)").fetchone()[0]
+          q['raw_supplier_name_variant_keys']=con.execute("SELECT count(*) FROM (SELECT Warehouse_Source,Supplier_ID,count(distinct Supplier_Name) n FROM read_parquet('v2/award_suppliers.parquet') GROUP BY 1,2 HAVING n>1)").fetchone()[0]
+          q['normalized_buyer_identity_collision_keys']=con.execute(f"SELECT count(*) FROM (SELECT Warehouse_Source,Buyer_ID,count(distinct {buyer_norm_sql}) n FROM read_parquet('v2/historical_tenders.parquet') WHERE Buyer_ID IS NOT NULL GROUP BY 1,2 HAVING n>1)").fetchone()[0]
+          q['normalized_supplier_identity_collision_keys']=con.execute(f"SELECT count(*) FROM (SELECT Warehouse_Source,Supplier_ID,count(distinct {supplier_norm_sql}||'|'||upper(coalesce(nullif(Supplier_Country,''),'UNKNOWN'))) n FROM read_parquet('v2/award_suppliers.parquet') GROUP BY 1,2 HAVING n>1)").fetchone()[0]
           q['legacy_bridge_rows']=con.execute(f"SELECT count(*) FROM read_parquet('{b}')").fetchone()[0]
-          q['bridge_rows_collapsed_as_same_new_identity']=q['legacy_bridge_rows']-q['award_supplier_links']
+          q['bridge_rows_collapsed_or_unidentifiable']=q['legacy_bridge_rows']-q['award_supplier_links']
           q['status']='PASS' if (
               q['tenders']==621515 and q['awards']==510490 and
               q['buyer_source_keys_unique'] and q['supplier_source_keys_unique'] and
               q['tender_ids_unique'] and q['award_ids_unique'] and q['award_supplier_keys_unique'] and
               q['award_tender_orphans']==0 and q['award_buyer_fk_orphans']==0 and q['bridge_supplier_fk_orphans']==0 and
-              q['source_buyer_collision_keys_v2']==0 and q['source_supplier_collision_keys_v2']==0
+              q['normalized_buyer_identity_collision_keys']==0 and q['normalized_supplier_identity_collision_keys']==0
           ) else 'FAIL'
-          quality={'version':'GLOBAL_CORE_V2_ENTITY_REKEY','created_at':datetime.now(timezone.utc).isoformat(),'source_release':'tender-normalized-global-core-v1','identity_method':'SHA256(source|normalized_name) for buyers; SHA256(source|normalized_name|country) for suppliers','legacy_ids_preserved_as_lineage_columns':True,'counts_and_integrity':q,'notes':['Facts are row-preserved for tenders and awards.','Supplier bridge may collapse multiple legacy IDs that resolve to the same evidence-bearing supplier identity on the same award.','Allocated award values are never summed during duplicate bridge collapse.'],'status':q['status']}
+          quality={'version':'GLOBAL_CORE_V2_ENTITY_REKEY','created_at':datetime.now(timezone.utc).isoformat(),'source_release':'tender-normalized-global-core-v1','identity_method':'SHA256(source|normalized_name) for buyers; SHA256(source|normalized_name|country) for suppliers','legacy_ids_preserved_as_lineage_columns':True,'counts_and_integrity':q,'notes':['Facts are row-preserved for tenders and awards.','Raw spelling/case/punctuation variants mapping to the same normalized identity are informational, not collisions.','Supplier bridge can collapse legacy IDs that resolve to the same evidence-bearing supplier identity on the same award.','Allocated award values are never summed during bridge collapse.'],'status':q['status']}
           (out/'data_quality.json').write_text(json.dumps(quality,indent=2),encoding='utf-8')
           manifest={'version':quality['version'],'created_at':quality['created_at'],'files':{}}
           for p in out.iterdir():
@@ -203,7 +197,7 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title 'Public Tender Intelligence — Global Core v2' \
-              --notes 'Collision-repaired five-market Global Core. Buyer and supplier IDs are rebuilt from evidence-bearing names, propagated through tender/award/bridge facts, and legacy IDs are retained only as lineage columns. Strong FK and collision gates must pass before publication.' \
+              --notes 'Collision-repaired five-market Global Core. Buyer and supplier IDs are rebuilt from evidence-bearing normalized names, propagated through tender/award/bridge facts, and legacy IDs are retained only as lineage columns. Strong FK and normalized-identity collision gates must pass before publication.' \
               --target "$GITHUB_SHA"
           fi
           find v2 -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
