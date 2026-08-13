@@ -1,0 +1,94 @@
+name: Probe Quebec SEAO JSON schema
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/quebec-schema-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download one representative official SEAO month
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p raw/quebec
+          gh release download tender-raw-quebec-v1 --pattern 'mensuel_20240101_20240131.json' --dir raw/quebec --clobber
+          ls -lh raw/quebec
+      - name: Inspect JSON structure, entity keys and award signals
+        run: |
+          python - <<'PY'
+          import collections,json,re
+          from pathlib import Path
+
+          p=Path('raw/quebec/mensuel_20240101_20240131.json')
+          obj=json.load(open(p,encoding='utf-8-sig'))
+          out={'file':p.name,'bytes':p.stat().st_size,'top_type':type(obj).__name__}
+          if isinstance(obj,dict):
+              out['top_keys']=list(obj)[:200]
+              # identify the largest list-like payload as candidate record collection
+              lists=[(k,v) for k,v in obj.items() if isinstance(v,list)]
+              lists.sort(key=lambda kv:len(kv[1]),reverse=True)
+              records=lists[0][1] if lists else []
+              out['list_lengths']={k:len(v) for k,v in lists[:50]}
+              out['selected_record_container']=lists[0][0] if lists else None
+          elif isinstance(obj,list):
+              records=obj
+              out['top_keys']=None
+              out['selected_record_container']='<root>'
+          else:
+              records=[]
+          out['record_count']=len(records)
+          key_counts=collections.Counter(); type_counts=collections.defaultdict(collections.Counter)
+          nested_key_counts=collections.Counter(); value_samples=collections.defaultdict(list)
+          samples=[]
+          signal_hits=collections.Counter()
+          signal_terms=('contrat','contract','fournisseur','supplier','adjudic','attribut','soumission','montant','prix','award','offre','organisme','acheteur','date','statut','cpv','unspsc','categorie','catégorie','document')
+          def walk(v,path=()):
+              if isinstance(v,dict):
+                  for k,x in v.items():
+                      pp=path+(str(k),);yield pp,x;yield from walk(x,pp)
+              elif isinstance(v,list):
+                  for i,x in enumerate(v[:50]):
+                      pp=path+(str(i),);yield pp,x;yield from walk(x,pp)
+          for r in records[:5000]:
+              if not isinstance(r,dict): continue
+              for k,v in r.items():
+                  key_counts[k]+=1;type_counts[k][type(v).__name__]+=1
+                  lk=str(k).lower()
+                  if any(t in lk for t in signal_terms):signal_hits[k]+=1
+                  if len(value_samples[k])<5 and v not in (None,'',[],{}):
+                      s=v if isinstance(v,(str,int,float,bool)) else json.dumps(v,ensure_ascii=False)[:1200]
+                      value_samples[k].append(s)
+              for path,v in walk(r):
+                  if path:
+                      pk='.'.join(path[-3:])
+                      nested_key_counts[pk]+=1
+              if len(samples)<8:samples.append(r)
+          out['record_top_keys']=key_counts.most_common(300)
+          out['field_types']={k:v.most_common() for k,v in type_counts.items()}
+          out['signal_fields']=signal_hits.most_common(200)
+          out['nested_paths']=nested_key_counts.most_common(500)
+          out['value_samples']={k:v for k,v in value_samples.items() if k in dict(signal_hits.most_common(200))}
+          out['samples']=samples
+          Path('tender_pipeline').mkdir(exist_ok=True)
+          Path('tender_pipeline/quebec_schema_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          compact={k:v for k,v in out.items() if k!='samples'}
+          print(json.dumps(compact,ensure_ascii=False,indent=2)[:50000])
+          PY
+      - name: Commit schema probe
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/quebec_schema_probe.json
+          git commit -m 'Record Quebec SEAO schema probe' || exit 0
+          git pull --rebase origin tender-harvest-relay-20260812
+          git push origin HEAD:tender-harvest-relay-20260812
