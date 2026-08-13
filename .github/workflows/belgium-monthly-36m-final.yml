@@ -1,0 +1,211 @@
+name: Belgium BDA monthly 36m final warehouse
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-monthly-36m-final.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harvest:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        month:
+          - '2023-08'
+          - '2023-09'
+          - '2023-10'
+          - '2023-11'
+          - '2023-12'
+          - '2024-01'
+          - '2024-02'
+          - '2024-03'
+          - '2024-04'
+          - '2024-05'
+          - '2024-06'
+          - '2024-07'
+          - '2024-08'
+          - '2024-09'
+          - '2024-10'
+          - '2024-11'
+          - '2024-12'
+          - '2025-01'
+          - '2025-02'
+          - '2025-03'
+          - '2025-04'
+          - '2025-05'
+          - '2025-06'
+          - '2025-07'
+          - '2025-08'
+          - '2025-09'
+          - '2025-10'
+          - '2025-11'
+          - '2025-12'
+          - '2026-01'
+          - '2026-02'
+          - '2026-03'
+          - '2026-04'
+          - '2026-05'
+          - '2026-06'
+          - '2026-07'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install anonymous public-browser dependency
+        run: |
+          python -m pip install --disable-pip-version-check -q playwright
+          python -m playwright install --with-deps chromium >/dev/null
+      - name: Harvest one public BDA month
+        env:
+          MONTH: ${{ matrix.month }}
+        run: |
+          set -uo pipefail
+          SUCCESS=no
+          for ATTEMPT in 1 2 3; do
+            rm -rf "raw/month-$MONTH"
+            if python - <<'PY'
+          import asyncio,json,os
+          from pathlib import Path
+          from types import SimpleNamespace
+          from tools.belgium_public_month_harvest import main
+          month=os.environ['MONTH']
+          out=f'raw/month-{month}'
+          args=SimpleNamespace(month=month,out=out,delay_ms=125,retries=5)
+          try:
+              asyncio.run(main(args))
+          except SystemExit as exc:
+              # BOSA includes publicationDateTo itself. The v1 month harvester therefore
+              # reports QA code 2 when only the next-month boundary is over-fetched.
+              if exc.code != 2:
+                  raise
+          p=Path(out)/f'belgium-bda-{month}.manifest.json'
+          r=Path(out)/f'belgium-bda-{month}.jsonl.gz'
+          if not p.exists() or not r.exists():
+              raise SystemExit('month raw/manifest missing')
+          q=json.loads(p.read_text(encoding='utf-8'))
+          assert q['publicationDateFrom']==month+'-01',q
+          assert q['rows']>0 and q['pages']>0,q
+          print('BELGIUM_MONTH_MATERIALIZED',month,q['pages'],q['rows'],q.get('observed_min_date'),q.get('observed_max_date'),q.get('out_of_window_rows'))
+          PY
+            then
+              SUCCESS=yes
+              break
+            fi
+            sleep $(( ATTEMPT * 10 ))
+          done
+          test "$SUCCESS" = yes
+      - name: Upload monthly shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: belgium-bda-${{ matrix.month }}
+          path: raw/month-${{ matrix.month }}/*
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate-normalize-publish:
+    needs: harvest
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: belgium-bda-*
+          path: raw/month-artifacts
+          merge-multiple: false
+      - name: Build exact 36-month raw corpus
+        run: |
+          python - <<'PY'
+          import gzip,hashlib,json,re
+          from pathlib import Path
+          root=Path('raw/month-artifacts')
+          out=Path('raw/belgium-exact');out.mkdir(parents=True,exist_ok=True)
+          dest=out/'belgium-public-pages-monthly-00001-99999.jsonl.gz'
+          seen=set();rows=0;excluded=0;dates=[];months=[];month_stats={}
+          files=sorted(root.glob('belgium-bda-*/belgium-bda-*.jsonl.gz'))
+          if len(files)!=36: raise SystemExit(f'expected 36 month shards, got {len(files)}')
+          with gzip.open(dest,'wt',encoding='utf-8',newline='') as w:
+              for p in files:
+                  m=re.search(r'belgium-bda-(\d{4}-\d{2})\.jsonl\.gz$',p.name)
+                  if not m: raise SystemExit(f'bad month filename {p}')
+                  month=m.group(1);months.append(month);kept=0;drop=0
+                  with gzip.open(p,'rt',encoding='utf-8') as f:
+                      for line in f:
+                          o=json.loads(line);pub=o.get('publication') or {}
+                          d=str(pub.get('publicationDate') or '')[:10]
+                          if not d.startswith(month+'-'):
+                              excluded+=1;drop+=1;continue
+                          ws=str(pub.get('publicationWorkspaceId') or '')
+                          key=ws or '|'.join([str(pub.get('procedureId') or ''),str(pub.get('referenceNumber') or ''),d,str(pub.get('noticeSubType') or '')])
+                          if key in seen: continue
+                          seen.add(key);rows+=1;kept+=1;dates.append(d)
+                          w.write(json.dumps({'harvest_page':f"{month}:{o.get('page')}",'publication':pub},ensure_ascii=False,separators=(',',':'))+'\n')
+                  month_stats[month]={'kept':kept,'boundary_or_outside_excluded':drop}
+          if months[0]!='2023-08' or months[-1]!='2026-07' or len(set(months))!=36: raise SystemExit(months)
+          if not dates or min(dates)<'2023-08-01' or max(dates)>'2026-07-31': raise SystemExit((min(dates),max(dates)))
+          h=hashlib.sha256(dest.read_bytes()).hexdigest()
+          manifest={'source':'Belgium e-Procurement Bulletin of Tenders public BDA','mode':'36_MONTH_UI_SHARDS_EXACT_WINDOW','window_start':'2023-08-01','window_end':'2026-07-31','months':36,'rows':rows,'unique_event_keys':len(seen),'boundary_or_outside_rows_excluded':excluded,'observed_min_date':min(dates),'observed_max_date':max(dates),'month_stats':month_stats,'file':dest.name,'bytes':dest.stat().st_size,'sha256':h,'status':'PASS'}
+          (out/'belgium-public-checkpoint.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+          print(json.dumps({k:v for k,v in manifest.items() if k!='month_stats'},indent=2))
+          PY
+      - name: Apply exact observed BOSA metadata mapping
+        run: python tools/patch_belgium_normalizer_runtime.py
+      - name: Normalize Belgium notice-first warehouse
+        run: |
+          rm -rf normalized/belgium
+          python tools/tender_normalize_belgium.py --raw-dir raw/belgium-exact --out normalized/belgium --start 2023-08-01 --end 2026-07-31
+      - name: Validate canonical Belgium warehouse
+        run: |
+          python - <<'PY'
+          import json
+          q=json.load(open('normalized/belgium/data_quality.json'))
+          print(json.dumps(q,indent=2))
+          assert q['status']=='PASS',q
+          assert q['canonical_tenders']>0 and q['publication_events']>0,q
+          assert all(q['integrity'].values()),q
+          PY
+      - name: Publish exact raw monthly corpus
+        run: |
+          set -euo pipefail
+          TAG='tender-raw-belgium-monthly-v2'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Belgium BDA exact 36-month raw monthly v2' --notes 'Anonymous public BOSA UI month shards, exact window 2023-08-01 through 2026-07-31. Boundary over-fetch removed deterministically before persistence. No auth state persisted.' --target tender-harvest-relay-20260812
+          fi
+          gh release upload "$TAG" raw/belgium-exact/belgium-public-pages-monthly-00001-99999.jsonl.gz raw/belgium-exact/belgium-public-checkpoint.json --clobber
+      - name: Publish canonical Belgium warehouse
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-belgium-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Normalized — Belgium BDA v1' --notes 'Conservative notice-first Belgium public BDA warehouse, 2023-08-01 through 2026-07-31. Exact TED references only; no supplier/value award facts invented from search summaries.' --target tender-harvest-relay-20260812
+          fi
+          find normalized/belgium -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+      - name: Read back canonical release
+        run: |
+          set -euo pipefail
+          rm -rf readback && mkdir readback
+          gh release download tender-normalized-belgium-v1 --pattern 'data_quality.json' --pattern 'run_manifest.json' --dir readback --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('readback/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['canonical_tenders']>0 and q['publication_events']>0,q
+          print('BELGIUM_CANONICAL_READBACK_PASS',q['canonical_tenders'],q['publication_events'],q['unique_buyers'],q['exact_ted_reference_links'])
+          PY
