@@ -1,0 +1,79 @@
+name: Probe Germany public procurement export schema
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/germany-schema-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download representative official German monthly export
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p raw/germany
+          gh release download tender-raw-germany-v1 --pattern 'germany_2026-07.zip' --dir raw/germany --clobber
+          ls -lh raw/germany
+      - name: Inspect archive structure and source schemas
+        run: |
+          python - <<'PY'
+          import collections, json, re, zipfile
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          zpath=next(Path('raw/germany').glob('*.zip'))
+          out={'archive':zpath.name,'files':0,'extensions':{},'top_paths':{},'xml_roots':{},'namespaces':{},'json_shapes':[],'samples':[]}
+          ext=collections.Counter(); top=collections.Counter(); roots=collections.Counter(); ns=collections.Counter()
+          with zipfile.ZipFile(zpath) as z:
+              names=[n for n in z.namelist() if not n.endswith('/')]
+              out['files']=len(names)
+              for n in names:
+                  e=Path(n).suffix.lower() or '<none>'; ext[e]+=1; top[n.split('/')[0]]+=1
+              for n in names[:min(len(names),500)]:
+                  e=Path(n).suffix.lower()
+                  try:b=z.read(n)
+                  except Exception:continue
+                  if e in ('.xml','.xhtml'):
+                      try:
+                          root=ET.fromstring(b)
+                          tag=root.tag
+                          roots[tag]+=1
+                          if tag.startswith('{'):
+                              ns[tag.split('}',1)[0][1:]]+=1
+                          if len(out['samples'])<20:
+                              txt=re.sub(r'\s+',' ',b[:12000].decode('utf-8','replace'))
+                              out['samples'].append({'name':n,'ext':e,'root':tag,'text_prefix':txt[:4000]})
+                      except Exception as ex:
+                          if len(out['samples'])<20: out['samples'].append({'name':n,'ext':e,'parse_error':repr(ex)})
+                  elif e in ('.json','.jsonl','.ndjson'):
+                      try:
+                          s=b.decode('utf-8','replace').strip(); obj=json.loads(s.splitlines()[0] if e in ('.jsonl','.ndjson') else s)
+                          shape={'name':n,'type':type(obj).__name__,'keys':list(obj)[:100] if isinstance(obj,dict) else None}
+                          out['json_shapes'].append(shape)
+                          if len(out['samples'])<20: out['samples'].append({'name':n,'ext':e,'shape':shape,'text_prefix':s[:4000]})
+                      except Exception as ex:
+                          if len(out['samples'])<20: out['samples'].append({'name':n,'ext':e,'parse_error':repr(ex)})
+                  elif len(out['samples'])<20 and e in ('.csv','.txt'):
+                      out['samples'].append({'name':n,'ext':e,'text_prefix':b[:4000].decode('utf-8','replace')})
+          out['extensions']=dict(ext); out['top_paths']=dict(top); out['xml_roots']=dict(roots); out['namespaces']=dict(ns)
+          Path('germany_schema_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({k:v for k,v in out.items() if k!='samples'},ensure_ascii=False,indent=2))
+          PY
+      - name: Persist probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='tender-probe-germany-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Germany tender schema probe v1' --notes 'Representative schema probe from official German monthly export.' --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" germany_schema_probe.json --clobber
+          gh release view "$TAG" --json tagName,url,assets
