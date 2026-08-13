@@ -29,31 +29,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
+
       - name: Resolve prior checkpoint release
         id: seed
         shell: bash
         run: |
           set -euo pipefail
           SEED='${{ inputs.checkpoint_release }}'
-          if [ -z "$SEED" ]; then SEED='tender-ted-result-continuation-v3'; fi
+          if [ -z "$SEED" ]; then SEED='tender-ted-result-auto-31657610766'; fi
           echo "release=$SEED" >> "$GITHUB_OUTPUT"
           echo "Seed release: $SEED"
-      - name: Wait for and download exact prior checkpoint
-        shell: bash
+
+      - name: Download exact prior checkpoint
         run: |
           set -euo pipefail
           mkdir -p checkpoint
-          SEED='${{ steps.seed.outputs.release }}'
-          ok=0
-          for i in $(seq 1 60); do
-            rm -f checkpoint/ted-result-checkpoint.json
-            if gh release download "$SEED" --pattern 'ted-result-checkpoint.json' --dir checkpoint --clobber >/dev/null 2>&1; then
-              ok=1; break
-            fi
-            sleep 10
-          done
-          if [ "$ok" != 1 ]; then echo "Checkpoint unavailable in $SEED" >&2; exit 1; fi
+          gh release download '${{ steps.seed.outputs.release }}' --pattern 'ted-result-checkpoint.json' --dir checkpoint --clobber
           cat checkpoint/ted-result-checkpoint.json
+
       - name: Prepare this loop release
         id: release
         shell: bash
@@ -63,27 +56,31 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           gh release create "$TAG" \
             --title "TED RESULT autonomous census ${GITHUB_RUN_ID}" \
-            --notes "Autonomous official TED Search API ITERATION continuation. Fixed census window 2023-08-11 through 2026-08-11. Up to 50k notices; raw, normalized, manifests and resumable checkpoint." \
+            --notes "Rate-limited crash-safe TED Search API ITERATION continuation. Fixed census window 2023-08-11 through 2026-08-11. Up to 50k notices with raw, normalized, manifests and resumable checkpoint." \
             --target "$GITHUB_SHA"
+
       - name: Harvest next up-to-50k census block
+        env:
+          LOOP_TAG: ${{ steps.release.outputs.tag }}
         run: |
           python - <<'PY'
           import csv,gzip,hashlib,json,os,pathlib,subprocess,time,urllib.error,urllib.request
+
           API='https://api.ted.europa.eu/v3/notices/search'
           TAG=os.environ['LOOP_TAG']
           QUERY='form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC'
           QUERY_FP='sha256:7c0e5ee5be6ec4b1c81d1c67f2318056c8ffe86897d114707c40f488e32c8cd5'
+          FIELDS=['publication-number','publication-date','notice-identifier','notice-title','form-type','notice-type','procedure-identifier','procedure-type','buyer-name','buyer-country','classification-cpv','title-proc','description-proc','estimated-value-proc','estimated-value-cur-proc','result-lot-identifier','result-value-lot','result-value-cur-lot','result-value-notice','result-value-cur-notice','tender-identifier','tender-lot-identifier','tender-value','tender-value-cur','winner-name','winner-country','winner-identifier','winner-decision-date','winner-selection-status','received-submissions-type-code','received-submissions-type-val']
           cp=json.load(open('checkpoint/ted-result-checkpoint.json',encoding='utf-8'))
           if cp.get('query_fingerprint')!=QUERY_FP: raise RuntimeError('Checkpoint query fingerprint mismatch')
           if cp.get('status') not in ('READY_TO_CONTINUE','CENSUS_COMPLETE'): raise RuntimeError(f'Unexpected checkpoint status {cp.get("status")}')
           if cp.get('status')=='CENSUS_COMPLETE':
-            pathlib.Path('auto_noop.json').write_text(json.dumps({'status':'ALREADY_COMPLETE','checkpoint':cp},indent=2)); subprocess.run(['gh','release','upload',TAG,'auto_noop.json','--clobber'],check=True); raise SystemExit(0)
-          token=cp.get('iteration_next_token'); start_page=int(cp['next_page']); base=int(cp['cumulative_archived_records']); total=cp.get('source_total_notice_count')
-          if not token: raise RuntimeError('Missing ITERATION token on incomplete checkpoint')
-          FIELDS=['publication-number','publication-date','notice-identifier','notice-title','form-type','notice-type','procedure-identifier','procedure-type','buyer-name','buyer-country','classification-cpv','title-proc','description-proc','estimated-value-proc','estimated-value-cur-proc','result-lot-identifier','result-value-lot','result-value-cur-lot','result-value-notice','result-value-cur-notice','tender-identifier','tender-lot-identifier','tender-value','tender-value-cur','winner-name','winner-country','winner-identifier','winner-decision-date','winner-selection-status','received-submissions-type-code','received-submissions-type-val']
-          out=pathlib.Path('ted_auto'); out.mkdir(exist_ok=True)
-          def post(tok,limit,retries=7):
-            payload={'query':QUERY,'fields':FIELDS,'paginationMode':'ITERATION','limit':limit,'iterationNextToken':tok}; body=json.dumps(payload).encode()
+            p=pathlib.Path('auto_noop.json');p.write_text(json.dumps({'status':'ALREADY_COMPLETE','checkpoint':cp},indent=2));subprocess.run(['gh','release','upload',TAG,str(p),'--clobber'],check=True);raise SystemExit(0)
+          token=cp['iteration_next_token'];page=int(cp['next_page']);base=int(cp['cumulative_archived_records']);snapshot_total=int(cp.get('source_total_notice_count') or 0)
+          out=pathlib.Path('ted_auto');out.mkdir(exist_ok=True)
+
+          def request(tok,limit,retries=9):
+            payload={'query':QUERY,'fields':FIELDS,'paginationMode':'ITERATION','limit':limit,'iterationNextToken':tok};body=json.dumps(payload).encode()
             for attempt in range(retries):
               req=urllib.request.Request(API,data=body,headers={'Content-Type':'application/json','Accept':'application/json'},method='POST')
               try:
@@ -93,18 +90,39 @@ jobs:
                   return obj
               except urllib.error.HTTPError as e:
                 msg=e.read().decode('utf-8','replace')
-                if e.code in (429,500,502,503,504) and attempt<retries-1: time.sleep(min(30,2**attempt)); continue
+                if e.code in (429,500,502,503,504) and attempt<retries-1:
+                  retry_after=e.headers.get('Retry-After') if e.headers else None
+                  try: delay=float(retry_after)
+                  except: delay=min(60,2**attempt)
+                  delay=max(2.0,delay)
+                  print('TED_RETRY_HTTP',e.code,'attempt',attempt+1,'sleep',delay,flush=True);time.sleep(delay);continue
                 raise RuntimeError(f'TED HTTP {e.code}: {msg[:4000]}')
-              except Exception:
-                if attempt<retries-1: time.sleep(min(30,2**attempt)); continue
+              except Exception as e:
+                if attempt<retries-1:
+                  delay=min(60,2**attempt);print('TED_RETRY_NETWORK',repr(e),'sleep',delay,flush=True);time.sleep(delay);continue
                 raise
-          pre=post(token,1)
-          if not pre.get('notices'): raise RuntimeError('Preflight returned no notice before declared census completion')
-          if total is None: total=pre.get('totalNoticeCount')
-          total=int(total)
+
+          def fetch_nonempty(tok,limit,retries=8):
+            last=None
+            for attempt in range(retries):
+              obj=request(tok,limit)
+              batch=obj.get('notices') or []
+              if batch:
+                time.sleep(0.8)
+                return obj
+              last=obj
+              delay=min(60,3*(2**attempt))
+              print('TED_SOFT_EMPTY_RETRY','attempt',attempt+1,'limit',limit,'sleep',delay,'keys',list(obj),flush=True)
+              time.sleep(delay)
+            raise RuntimeError(f'TED returned an empty 200 batch {retries} times for the same cursor; last_keys={list(last or {})}')
+
+          pre=fetch_nonempty(token,1)
+          live_total=int(pre.get('totalNoticeCount') or snapshot_total)
+          total=max(snapshot_total,live_total)
           if base>=total: raise RuntimeError(f'Checkpoint says incomplete but base {base} >= total {total}')
           target=min(50000,total-base)
-          print('AUTO_CENSUS_START','base',base,'total',total,'target',target,'start_page',start_page)
+          print('AUTO_CENSUS_START','base',base,'snapshot_total',snapshot_total,'live_total',live_total,'target',target,'start_page',page,flush=True)
+
           def sha(p):
             h=hashlib.sha256()
             with open(p,'rb') as f:
@@ -114,14 +132,14 @@ jobs:
             if v is None:return ''
             if isinstance(v,(dict,list)):return json.dumps(v,ensure_ascii=False,separators=(',',':'))
             return str(v)
-          committed=0; page=start_page; seen=set(); last_page=start_page-1
+
+          committed=0;seen=set();last_page=page-1
           while committed<target:
-            shard_target=min(5000,target-committed); notices=[]; shard_start_token=token; shard_page_start=page
+            shard_target=min(5000,target-committed);notices=[];shard_start_token=token;shard_page_start=page
             while len(notices)<shard_target:
-              lim=min(250,shard_target-len(notices)); obj=post(token,lim); batch=obj.get('notices') or []
-              if not batch: raise RuntimeError(f'Unexpected empty batch at cumulative {base+committed+len(notices)} / {total}')
+              lim=min(250,shard_target-len(notices));obj=fetch_nonempty(token,lim);batch=obj.get('notices') or []
               if len(batch)>lim: raise RuntimeError(f'API returned {len(batch)} > requested {lim}')
-              notices.extend(batch); nxt=obj.get('iterationNextToken'); last_page=page; page+=1
+              notices.extend(batch);nxt=obj.get('iterationNextToken');last_page=page;page+=1
               if len(notices)<shard_target and not nxt: raise RuntimeError('Missing next token before shard target/census end')
               token=nxt
             pub=[]
@@ -134,8 +152,8 @@ jobs:
             overlap=seen.intersection(pub)
             if overlap:raise RuntimeError(f'Cross-shard duplicate count {len(overlap)}')
             seen.update(pub)
-            shard_page_end=last_page; stem=f'ted-result-p{shard_page_start:04d}-{shard_page_end:04d}'
-            rawp=out/f'{stem}.raw.jsonl.gz'; normp=out/f'{stem}.normalized.csv.gz'; manp=out/f'{stem}.manifest.json'
+            shard_page_end=last_page;stem=f'ted-result-p{shard_page_start:04d}-{shard_page_end:04d}'
+            rawp=out/f'{stem}.raw.jsonl.gz';normp=out/f'{stem}.normalized.csv.gz';manp=out/f'{stem}.manifest.json'
             with gzip.open(rawp,'wt',encoding='utf-8',newline='') as f:
               for n in notices:f.write(json.dumps(n,ensure_ascii=False,separators=(',',':'))+'\n')
             with gzip.open(normp,'wt',encoding='utf-8',newline='') as f:
@@ -143,24 +161,23 @@ jobs:
               for n in notices:
                 row={k:cell(n.get(k)) for k in FIELDS};row['source_urls_json']=cell(n.get('links') or n.get('urls') or n.get('_links'));w.writerow(row)
             new_total=base+committed+len(notices)
-            man={'schema_version':'TED_AUTO_CENSUS_V1','source':'TED Search API v3','query':QUERY,'query_fingerprint':QUERY_FP,'window_start':'2023-08-11','window_end':'2026-08-11','pagination_mode':'ITERATION','page_start':shard_page_start,'page_end':shard_page_end,'source_record_count':len(notices),'normalized_row_count':len(notices),'duplicate_count':0,'source_total_notice_count':total,'base_archived_before_block':base,'cumulative_archived_after_shard':new_total,'raw_file':{'name':rawp.name,'bytes':rawp.stat().st_size,'sha256':sha(rawp)},'normalized_file':{'name':normp.name,'bytes':normp.stat().st_size,'sha256':sha(normp)},'start_token_sha256':hashlib.sha256(shard_start_token.encode()).hexdigest(),'next_token':token,'status':'COMPLETE'}
+            man={'schema_version':'TED_AUTO_CENSUS_V2','source':'TED Search API v3','query':QUERY,'query_fingerprint':QUERY_FP,'window_start':'2023-08-11','window_end':'2026-08-11','pagination_mode':'ITERATION','rate_limit_delay_seconds':0.8,'page_start':shard_page_start,'page_end':shard_page_end,'source_record_count':len(notices),'normalized_row_count':len(notices),'duplicate_count':0,'source_total_notice_count':total,'base_archived_before_block':base,'cumulative_archived_after_shard':new_total,'raw_file':{'name':rawp.name,'bytes':rawp.stat().st_size,'sha256':sha(rawp)},'normalized_file':{'name':normp.name,'bytes':normp.stat().st_size,'sha256':sha(normp)},'start_token_sha256':hashlib.sha256(shard_start_token.encode()).hexdigest(),'next_token':token,'status':'COMPLETE'}
             manp.write_text(json.dumps(man,ensure_ascii=False,indent=2),encoding='utf-8')
             status='CENSUS_COMPLETE' if new_total>=total else 'READY_TO_CONTINUE'
             checkpoint={'source':'TED','phase':'AWARD_NOTICE_UNIVERSE','query':QUERY,'query_fingerprint':QUERY_FP,'window_start':'2023-08-11','window_end':'2026-08-11','pagination_mode':'ITERATION','page_size_max':250,'pages_completed':shard_page_end,'next_page':page,'iteration_next_token':token,'cumulative_archived_records':new_total,'source_total_notice_count':total,'last_committed_shard':stem,'status':status}
             cpp=out/'ted-result-checkpoint.json';cpp.write_text(json.dumps(checkpoint,ensure_ascii=False,indent=2),encoding='utf-8')
             for p in (rawp,normp,manp,cpp):subprocess.run(['gh','release','upload',TAG,str(p),'--clobber'],check=True)
-            committed+=len(notices);print('AUTO_COMMITTED',stem,'records',len(notices),'cumulative',base+committed,'/',total)
+            committed+=len(notices);print('AUTO_COMMITTED',stem,'records',len(notices),'cumulative',base+committed,'/',total,flush=True)
+
           final={'new_records_committed':committed,'base_records':base,'cumulative_records':base+committed,'source_total_notice_count':total,'next_page':page,'next_token':token,'status':'CENSUS_COMPLETE' if base+committed>=total else 'READY_TO_CONTINUE','release':TAG}
           sp=out/'ted-result-continuation-summary.json';sp.write_text(json.dumps(final,ensure_ascii=False,indent=2),encoding='utf-8');subprocess.run(['gh','release','upload',TAG,str(sp),'--clobber'],check=True);print(json.dumps(final,indent=2))
           PY
-        env:
-          LOOP_TAG: ${{ steps.release.outputs.tag }}
-      - name: Chain next 50k block when census remains
-        shell: bash
+
+      - name: Chain next block when census remains
         run: |
           set -euo pipefail
           TAG='${{ steps.release.outputs.tag }}'
-          rm -rf readback && mkdir readback
+          mkdir -p readback
           gh release download "$TAG" --pattern 'ted-result-checkpoint.json' --dir readback --clobber
           STATUS=$(python -c "import json;print(json.load(open('readback/ted-result-checkpoint.json'))['status'])")
           COUNT=$(python -c "import json;print(json.load(open('readback/ted-result-checkpoint.json'))['cumulative_archived_records'])")
