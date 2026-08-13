@@ -1,0 +1,59 @@
+name: Probe Belgium e-Procurement public API routes
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-eprocurement-api-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Fetch public BOSA frontend and discover public bundles/routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import urllib.request,re,urllib.parse,json
+          roots=['https://www.publicprocurement.be/','https://publicprocurement.be/','https://int.publicprocurement.be/']
+          ua={'User-Agent':'Mozilla/5.0 TenderResearch/1.0'}
+          html=None;base=None
+          for u in roots:
+              try:
+                  r=urllib.request.Request(u,headers=ua)
+                  with urllib.request.urlopen(r,timeout=25) as x:
+                      b=x.read(5_000_000);print('ROOT',u,'STATUS',x.status,'TYPE',x.headers.get('content-type'),'BYTES',len(b))
+                      t=b.decode('utf-8','replace')
+                      if '<script' in t.lower():html=t;base=x.geturl();break
+              except Exception as e: print('ROOT_ERROR',u,repr(e))
+          if not html: raise SystemExit('No frontend HTML discovered')
+          scripts=re.findall(r'<script[^>]+src=["\']([^"\']+)',html,re.I)
+          print('SCRIPTS',scripts)
+          patterns=[r'https?://[^"\'\s)]+',r'["\']([^"\']*(?:api|notice|publication|search)[^"\']*)["\']']
+          found=set()
+          for src in scripts:
+              u=urllib.parse.urljoin(base,src)
+              try:
+                  req=urllib.request.Request(u,headers=ua)
+                  with urllib.request.urlopen(req,timeout=30) as x:
+                      data=x.read(30_000_000).decode('utf-8','replace')
+                  print('BUNDLE',u,'CHARS',len(data))
+                  for m in re.findall(r'https?://[^"\'\s)]+',data):
+                      if any(k in m.lower() for k in ('publicprocurement','api','swagger','notice','publication')):found.add(m[:1000])
+                  for m in re.findall(r'["\']([^"\']{1,300})["\']',data):
+                      ml=m.lower()
+                      if ('/api/' in ml or ml.startswith('/api') or 'notice' in ml or 'publication' in ml) and not m.startswith('data:'):
+                          found.add(m)
+              except Exception as e: print('BUNDLE_ERROR',u,repr(e))
+          print('CANDIDATE_ROUTES')
+          for x in sorted(found):print(x)
+          print('BELGIUM_FRONTEND_PROBE_PASS candidates',len(found))
+          PY
