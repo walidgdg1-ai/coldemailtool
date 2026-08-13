@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tender-ted-full-stage-v1
+  group: tender-ted-full-final-v2
   cancel-in-progress: false
 
 env:
@@ -91,8 +91,8 @@ jobs:
           q=json.load(open('readback/ted-stage-checkpoint.json'))
           print(json.dumps(q,indent=2))
           assert q.get('status')=='STAGE_COMPLETE',q
-          assert q.get('completed_count')==45,q
-          assert q.get('expected_count')==45,q
+          assert q.get('completed_packages')==45,q
+          assert q.get('expected_packages')==45,q
           assert q.get('raw_xml_sum')==2566835,q
           s=json.load(open('readback/ted-stage-summary.json'))
           assert s.get('status')=='STAGE_COMPLETE',s
