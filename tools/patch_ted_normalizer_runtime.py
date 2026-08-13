@@ -2,6 +2,29 @@
 from pathlib import Path
 p=Path('tools/tender_normalize_ted_bulk.py')
 s=p.read_text(encoding='utf-8')
+
+# sqlite3 Cursor.execute() invalidates an active iteration on the same cursor. The canonical
+# award loop performs a nested supplier lookup, so materialize award rows before that lookup.
+old_awards="""    awards=[]
+    for r in c.execute('SELECT '+','.join(acols)+' FROM awards'):
+        a=dict(zip(acols,r));hid=hid_by_pk.get(a['procurement_key'])
+        if not hid:continue
+        bid,bname,country=buyer_by_pk[a['procurement_key']]
+        bs=c.execute('SELECT supplier_id,supplier_name,supplier_country,allocated_value FROM bridges WHERE award_id=?',(a['award_id'],)).fetchall();first=bs[0] if len(bs)==1 else (None,None,None,None)
+        awards.append({'Award_ID':a['award_id'],'Historical_Tender_ID':hid,'Buyer_ID':bid,'Buyer_Name':bname,'Supplier_ID':first[0],'Supplier_Name':first[1],'Supplier_Country':first[2],'Award_Date':iso_date(a['award_date']),'Award_Value':a['value'],'Currency':a['currency'],'Bidder_Count':a['bidder_count'] if a['bidder_count'] is not None else UNKNOWN,'Supplier_Count':a['supplier_count'] if a['supplier_count'] is not None else UNKNOWN,'Value_Field':a['value_field'],'Schema_Generation':a['schema_generation'],'Source_Notice_ID':a['notice_id']})
+"""
+new_awards="""    awards=[]
+    award_rows_sqlite=c.execute('SELECT '+','.join(acols)+' FROM awards').fetchall()
+    for r in award_rows_sqlite:
+        a=dict(zip(acols,r));hid=hid_by_pk.get(a['procurement_key'])
+        if not hid:continue
+        bid,bname,country=buyer_by_pk[a['procurement_key']]
+        bs=c.execute('SELECT supplier_id,supplier_name,supplier_country,allocated_value FROM bridges WHERE award_id=?',(a['award_id'],)).fetchall();first=bs[0] if len(bs)==1 else (None,None,None,None)
+        awards.append({'Award_ID':a['award_id'],'Historical_Tender_ID':hid,'Buyer_ID':bid,'Buyer_Name':bname,'Supplier_ID':first[0],'Supplier_Name':first[1],'Supplier_Country':first[2],'Award_Date':iso_date(a['award_date']),'Award_Value':a['value'],'Currency':a['currency'],'Bidder_Count':a['bidder_count'] if a['bidder_count'] is not None else UNKNOWN,'Supplier_Count':a['supplier_count'] if a['supplier_count'] is not None else UNKNOWN,'Value_Field':a['value_field'],'Schema_Generation':a['schema_generation'],'Source_Notice_ID':a['notice_id']})
+"""
+if old_awards not in s:raise SystemExit('award cursor block not found')
+s=s.replace(old_awards,new_awards,1)
+
 old="""    bridges=[];suppliers={}
     for aid,sid,sname,scountry,alloc in c.execute('SELECT award_id,supplier_id,supplier_name,supplier_country,allocated_value FROM bridges'):
         if not any(x['Award_ID']==aid for x in awards):continue
@@ -20,4 +43,4 @@ new2="""'award_tender_fk':all(x['Historical_Tender_ID'] in {t['Historical_Tender
 if old2 not in s:raise SystemExit('integrity block not found')
 s=s.replace(old2,new2,1)
 p.write_text(s,encoding='utf-8')
-print('TED dual-stack runtime patch applied')
+print('TED dual-stack runtime patch applied: award cursor preservation + O(1) bridge integrity')
