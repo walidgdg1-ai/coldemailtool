@@ -20,38 +20,47 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check -q playwright
           python -m playwright install --with-deps chromium >/dev/null
-      - name: Probe arbitrary pages using only the exact app-generated public payload shape
+      - name: Probe whether public UI pagination is addressable through URL state
         run: |
           python - <<'PY'
-          import asyncio,json
+          import asyncio,re
           from playwright.async_api import async_playwright
 
-          TESTS=[
-            {'includeOrganisationChildren':True,'page':2,'pageSize':25},
-            {'includeOrganisationChildren':True,'page':250,'pageSize':25},
-            {'includeOrganisationChildren':True,'page':1000,'pageSize':25},
-          ]
+          API='/api/sea/search/publications'
           async def main():
             async with async_playwright() as p:
               browser=await p.chromium.launch(headless=True)
-              page=await browser.new_page(locale='en-GB')
+              page=await browser.new_page(locale='en-GB',viewport={'width':1440,'height':1100})
+              requests=[]
+              def on_req(req):
+                if API in req.url.lower(): requests.append(req.post_data)
+              page.on('request',on_req)
               await page.goto('https://www.publicprocurement.be/bda',wait_until='domcontentloaded',timeout=90000)
-              await page.wait_for_timeout(3000)
-              for i,payload in enumerate(TESTS,1):
-                result=await page.evaluate("""async (payload) => {
-                  const r=await fetch('/api/sea/search/publications',{
-                    method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)
-                  });
-                  const text=await r.text();
-                  let body=null; try {body=JSON.parse(text)} catch(e) {body={_raw:text.slice(0,500)}}
-                  return {status:r.status,body};
-                }""",payload)
-                o=result['body'];pubs=(o.get('publications') or []) if isinstance(o,dict) else []
-                dates=[x.get('publicationDate') for x in pubs if x.get('publicationDate')]
-                print('TEST',i,'STATUS',result['status'],'PAGE',payload['page'],'COUNT',len(pubs),'NEWEST',max(dates) if dates else None,'OLDEST',min(dates) if dates else None)
-                assert result['status']==200,(i,result['status'],o)
-                assert 0 < len(pubs) <= 25,(i,len(pubs))
+              await page.wait_for_timeout(5000)
+              print('URL_INITIAL',page.url)
+              p2=page.get_by_role('button',name=re.compile(r'^\s*2\s*$'))
+              assert await p2.count() and await p2.first.is_visible()
+              async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000):
+                await p2.first.click()
+              await page.wait_for_timeout(1000)
+              print('URL_AFTER_PAGE2',page.url)
+              print('REQUEST_AFTER_PAGE2',requests[-1] if requests else None)
+              # The public UI exposes the last page as a numbered pagination button.
+              buttons=await page.locator('button').evaluate_all("els=>els.map((e,i)=>({i,text:(e.innerText||'').trim(),aria:e.getAttribute('aria-label'),disabled:e.disabled})).filter(x=>x.text)")
+              nums=[]
+              for b in buttons:
+                t=b['text'].replace(',','').strip()
+                if t.isdigit(): nums.append((int(t),b['text']))
+              assert nums,buttons
+              last_num,last_text=max(nums)
+              print('LAST_VISIBLE_PAGE',last_num,last_text)
+              last=page.get_by_role('button',name=re.compile(r'^\s*'+re.escape(last_text)+r'\s*$'))
+              assert await last.count() and await last.first.is_visible()
+              async with page.expect_response(lambda r: API in r.url.lower(),timeout=30000):
+                await last.first.click()
+              await page.wait_for_timeout(1000)
+              print('URL_AFTER_LAST',page.url)
+              print('REQUEST_AFTER_LAST',requests[-1] if requests else None)
               await browser.close()
-            print('BELGIUM_ARBITRARY_PAGE_PUBLIC_PAYLOAD_PASS')
           asyncio.run(main())
           PY
