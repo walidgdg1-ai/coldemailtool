@@ -1,0 +1,146 @@
+name: Normalize USAspending federal contract awards 36 months
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-normalize-usa-awards.yml'
+      - 'tools/tender_normalize_usa_awards.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: tender-normalize-usa-awards-v1
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Ingest FY2023 through FY2026 sequentially to narrow Parquet candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p raw/usa work/usa
+          for FY in 2023 2024 2025 2026; do
+            echo "===== USAspending FY${FY} ====="
+            rm -f raw/usa/*.zip
+            gh release download "tender-raw-usa-fy${FY}-v1" --pattern '*.zip' --dir raw/usa --clobber
+            ZIP=$(find raw/usa -maxdepth 1 -name '*.zip' -print -quit)
+            test -n "$ZIP"
+            ls -lh "$ZIP"
+            python tools/tender_normalize_usa_awards.py \
+              --work work/usa \
+              --ingest-zip "$ZIP" \
+              --start 2023-08-01 \
+              --end 2026-07-31
+            rm -f "$ZIP"
+            echo "Candidate store after FY${FY}:"
+            du -sh work/usa
+          done
+
+      - name: Finalize one canonical award snapshot per federal contract
+        id: finalize
+        shell: bash
+        run: |
+          set +e
+          python tools/tender_normalize_usa_awards.py \
+            --work work/usa \
+            --finalize \
+            --out normalized/usa \
+            --start 2023-08-01 \
+            --end 2026-07-31 > usa_full_finalize.log 2>&1
+          rc=$?
+          cat usa_full_finalize.log
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Persist pre-validation QA when finalize succeeded
+        if: steps.finalize.outputs.exit_code == '0'
+        run: |
+          set -euo pipefail
+          TAG='tender-usa-awards-qa-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'USAspending federal awards 36-month QA v1' \
+              --notes 'Pre-validation QA for the canonical 2023-08-01 through 2026-07-31 USAspending award-first warehouse.' \
+              --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" normalized/usa/data_quality.json normalized/usa/run_manifest.json --clobber
+          cat normalized/usa/data_quality.json
+
+      - name: Publish private diagnostic if finalize failed
+        if: steps.finalize.outputs.exit_code != '0'
+        run: |
+          tail -n 500 usa_full_finalize.log > usa_full_finalize_tail.log
+          {
+            echo 'Temporary USA full award normalizer diagnostic. Safe to close after repair.'
+            echo
+            echo '```text'
+            cat usa_full_finalize_tail.log
+            echo '```'
+          } > issue_body.md
+          gh issue create --title "TEMP USA full award normalizer traceback $GITHUB_RUN_ID" --body-file issue_body.md
+
+      - name: Enforce canonical data-quality gates
+        if: steps.finalize.outputs.exit_code == '0'
+        run: |
+          python - <<'PY'
+          import json
+          q=json.load(open('normalized/usa/data_quality.json',encoding='utf-8'))
+          print(json.dumps(q,indent=2))
+          assert q['canonical_awards'] > 5_000_000, q
+          assert q['canonical_tenders'] == q['canonical_awards'], q
+          assert q['unique_buyers'] > 2_000, q
+          assert q['unique_suppliers'] > 50_000, q
+          assert q['award_value_coverage_pct'] > 99.0, q
+          assert q['bidder_count_coverage_pct'] > 10.0, q
+          assert all(q['integrity'].values()), q['integrity']
+          print('USA_36_MONTH_CANONICAL_VALIDATION_PASS')
+          PY
+
+      - name: Guard release asset sizes
+        if: steps.finalize.outputs.exit_code == '0'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          limit=1_900_000_000
+          for p in Path('normalized/usa').iterdir():
+              if not p.is_file(): continue
+              print(p.name,p.stat().st_size)
+              if p.stat().st_size >= limit:
+                  raise SystemExit(f'{p.name} is {p.stat().st_size} bytes; shard before GitHub release upload')
+          PY
+
+      - name: Publish final normalized USA award warehouse
+        if: steps.finalize.outputs.exit_code == '0'
+        run: |
+          set -euo pipefail
+          TAG='tender-normalized-usa-awards-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Normalized — USA federal awards v1' \
+              --notes 'Canonical award-first USAspending federal contract warehouse for 2023-08-01 through 2026-07-31. Latest transaction per contract_award_unique_key; solicitation IDs, official number_of_offers_received, competition method, set-aside, NAICS/PSC and source permalink retained. Historical tender rows are explicitly reconstructed from awards rather than asserted as original SAM.gov notices.' \
+              --target "$GITHUB_SHA"
+          fi
+          find normalized/usa -type f -print0 | while IFS= read -r -d '' f; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+          gh release view "$TAG" --json tagName,url,assets
+
+      - name: Fail workflow if finalize failed
+        run: test '${{ steps.finalize.outputs.exit_code }}' = '0'
