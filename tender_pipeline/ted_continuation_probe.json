@@ -1,0 +1,17 @@
+{
+  "request": {
+    "query": "form-type = result AND publication-date >= 20230811 AND publication-date <= 20260811 SORT BY publication-date DESC",
+    "paginationMode": "ITERATION",
+    "limit": 5,
+    "checkpoint_page": 201,
+    "checkpoint_archived_records": 50000
+  },
+  "http_status": 400,
+  "token_accepted": false,
+  "response_keys": [],
+  "record_count": 0,
+  "first_record_summaries": [],
+  "next_token_present": false,
+  "next_token": null,
+  "error": "{\"message\":\"Validation error\",\"error\":[{\"objectName\":\"publicExpertSearchRequestV1\",\"field\":\"fields\",\"message\":\"must not be empty\"}]}"
+}
