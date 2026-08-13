@@ -1,0 +1,60 @@
+name: Resolve exact Belgium BDA search network contract
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-bda-network-contract-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Recursively inspect BDA public frontend chunks
+        run: |
+          python - <<'PY'
+          import urllib.request,re,urllib.parse
+          root='https://www.publicprocurement.be/assets/'
+          H={'User-Agent':'Mozilla/5.0 TenderResearch/1.0','Accept':'*/*'}
+          def get(name):
+              u=urllib.parse.urljoin(root,name)
+              req=urllib.request.Request(u,headers=H)
+              with urllib.request.urlopen(req,timeout=40) as r:
+                  return r.read(40_000_000).decode('utf-8','replace')
+          seeds=['BDAPage-CAfmlDOE.js','700-Bn7hygrP.js']
+          blobs={};queue=list(seeds)
+          while queue and len(blobs)<40:
+              name=queue.pop(0)
+              if name in blobs:continue
+              try:data=get(name)
+              except Exception as e:print('LOAD_ERROR',name,repr(e));continue
+              blobs[name]=data;print('LOADED',name,'chars',len(data))
+              if name.startswith('BDAPage'):
+                  for dep in re.findall(r'from["\']\.\/([^"\']+\.js)["\']',data):
+                      if dep not in blobs:queue.append(dep)
+          needles=['getFiltersUsingShortLink','getBda','bda/','publicationDateFrom','itemsPerPage','searchApi','search-api','/bda','filter','shortLink','pageable','sortBy']
+          for name,data in blobs.items():
+              for needle in needles:
+                  pos=0;hits=0
+                  while hits<12:
+                      i=data.find(needle,pos)
+                      if i<0:break
+                      print('\nCTX',name,'NEEDLE',needle,'AT',i)
+                      print(data[max(0,i-2600):min(len(data),i+5200)])
+                      pos=i+len(needle);hits+=1
+          print('\nHTTP_CALL_LITERALS')
+          vals=set()
+          for name,data in blobs.items():
+              for s in re.findall(r'["\']([^"\']{1,500})["\']',data):
+                  sl=s.lower()
+                  if any(k in sl for k in ('bda','search','filter','shortlink','publication')) and (s.startswith('/') or 'http' in sl or len(s)<120):
+                      vals.add((name,s))
+          for name,s in sorted(vals):print(name,'::',s)
+          print('BELGIUM_BDA_DEEP_PROBE_PASS files',len(blobs),'literals',len(vals))
+          PY
