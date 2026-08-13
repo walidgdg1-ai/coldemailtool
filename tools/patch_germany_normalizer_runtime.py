@@ -22,9 +22,9 @@ old="""    buyers=defaultdict(lambda:{'tenders':0,'awards':0,'values':[],'bidder
                 if pd.notna(r.Bidder_Count):q['bidders'].append(float(r.Bidder_Count));break
 """
 new="""    buyers=defaultdict(lambda:{'tenders':0,'awards':0,'values':[],'bidders':[]}); buyer_key_by_id={}
-    for r in pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Buyer_ID','Buyer_Name']).itertuples(index=False):
+    for r in pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Buyer_ID','Buyer_Name'],low_memory=False).itertuples(index=False):
         k=(r.Buyer_ID,r.Buyer_Name);buyers[k]['tenders']+=1;buyer_key_by_id[r.Buyer_ID]=k
-    for r in pd.read_csv(out/'awards.csv.gz',usecols=['Buyer_ID','Award_Value','Bidder_Count']).itertuples(index=False):
+    for r in pd.read_csv(out/'awards.csv.gz',usecols=['Buyer_ID','Award_Value','Bidder_Count'],low_memory=False).itertuples(index=False):
         k=buyer_key_by_id.get(r.Buyer_ID)
         if not k: continue
         q=buyers[k];q['awards']+=1
@@ -48,7 +48,7 @@ s=s.replace(old_rank,new_rank,1)
 # Analytics later reuses `tdf` as a narrow view. QA needs the full date/value/link columns,
 # so read a dedicated QA frame rather than relying on the shadowed variable.
 anchor="counts={'normalized_tenders':len(tdf),'award_groups':len(adf),'award_supplier_links':len(bdf),'unique_buyers':int(tdf.Buyer_ID.nunique()),'unique_suppliers':int(bdf.Supplier_ID.nunique()) if len(bdf) else 0}"
-replacement="""qdf=pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Historical_Tender_ID','Buyer_ID','Publication_Date','Deadline','Official_Estimated_Value','Award_Link_Status'])
+replacement="""qdf=pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Historical_Tender_ID','Buyer_ID','Publication_Date','Deadline','Official_Estimated_Value','Award_Link_Status'],low_memory=False)
     counts={'normalized_tenders':len(qdf),'award_groups':len(adf),'award_supplier_links':len(bdf),'unique_buyers':int(qdf.Buyer_ID.nunique()),'unique_suppliers':int(bdf.Supplier_ID.nunique()) if len(bdf) else 0}"""
 if anchor not in s:
     raise SystemExit('QA counts target not found; refusing unsafe patch')
@@ -59,5 +59,12 @@ s=s.replace("round(tdf.Official_Estimated_Value.notna().mean()*100,2)","round(qd
 s=s.replace("round((tdf.Award_Link_Status=='LINKED').mean()*100,2)","round((qdf.Award_Link_Status=='LINKED').mean()*100,2)")
 s=s.replace("bool(tdf.Historical_Tender_ID.is_unique)","bool(qdf.Historical_Tender_ID.is_unique)")
 
+# Pandas' low-memory C-parser hit an internal _concatenate_chunks IndexError only after
+# all 857k XML records had already been normalized. Force single-pass dtype inference
+# for the remaining canonical readbacks; this changes no rows and avoids the parser bug.
+s=s.replace("pd.read_csv(out/'award_suppliers.csv.gz')", "pd.read_csv(out/'award_suppliers.csv.gz',low_memory=False)")
+s=s.replace("pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Historical_Tender_ID','Category','Subcategory','Buyer_ID','Buyer_Name','Lean_Fit'])", "pd.read_csv(out/'historical_tenders.csv.gz',usecols=['Historical_Tender_ID','Category','Subcategory','Buyer_ID','Buyer_Name','Lean_Fit'],low_memory=False)")
+s=s.replace("pd.read_csv(out/'awards.csv.gz',usecols=['Historical_Tender_ID','Award_ID','Award_Value','Bidder_Count'])", "pd.read_csv(out/'awards.csv.gz',usecols=['Historical_Tender_ID','Award_ID','Award_Value','Bidder_Count'],low_memory=False)")
+
 p.write_text(s,encoding='utf-8')
-print('Germany runtime patch applied: publication grain + buyer O(1) + empty-rank + QA frame isolation')
+print('Germany runtime patch applied: publication grain + buyer O(1) + empty-rank + QA frame isolation + robust pandas readback')
