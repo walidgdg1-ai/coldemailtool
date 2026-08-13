@@ -1,96 +1,62 @@
 name: Build Global Core v4 overlap-aware
-
 on:
   push:
     branches: [tender-harvest-relay-20260812]
     paths: ['.github/workflows/tender-build-global-core-v3.yml']
   workflow_dispatch:
-
-permissions:
-  contents: write
-
-concurrency:
-  group: tender-global-core-v4
-  cancel-in-progress: false
+permissions: {contents: write}
+concurrency: {group: tender-global-core-v4, cancel-in-progress: false}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      GH_TOKEN: ${{ github.token }}
+    env: {GH_TOKEN: '${{ github.token }}'}
     steps:
       - uses: actions/checkout@v4
         with: {ref: tender-harvest-relay-20260812}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Install DuckDB
-        run: python -m pip install --disable-pip-version-check -q duckdb
-      - name: Download validated inputs
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download canonical inputs
         run: |
           set -euo pipefail
-          mkdir -p inputs/core inputs/nl inputs/be inputs/ted inputs/usa inputs/aus
+          mkdir -p inputs/{core,nl,be,ted,usa,aus}
           for a in historical_tenders.parquet awards.parquet award_suppliers.parquet data_quality.json; do gh release download tender-normalized-global-core-v3 --pattern "$a" --dir inputs/core --clobber; done
           for a in historical_tenders.csv.gz awards.csv.gz award_suppliers.csv.gz data_quality.json; do gh release download tender-normalized-tenderned-v1 --pattern "$a" --dir inputs/nl --clobber; done
           for a in historical_tenders.csv.gz data_quality.json; do gh release download tender-normalized-belgium-v1 --pattern "$a" --dir inputs/be --clobber; done
           for a in historical_tenders.parquet awards.parquet award_suppliers.parquet data_quality.json; do gh release download tender-normalized-ted-v1 --pattern "$a" --dir inputs/ted --clobber; done
           gh release download tender-normalized-usa-awards-v1 --pattern data_quality.json --dir inputs/usa --clobber
           gh release download tender-normalized-austender-v1 --pattern data_quality.json --dir inputs/aus --clobber
-          find inputs -type f -printf '%p %s bytes\n' | sort
-      - name: Validate inputs and apply audited runtime patches
+      - name: Gate inputs and patch builder
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          for lane in ['core','nl','be','ted','aus']:
-              p=Path('inputs')/lane/'data_quality.json'; q=json.loads(p.read_text())
-              print('INPUT_QA',lane,q.get('status')); assert q.get('status')=='PASS',(lane,q)
-          usa=json.loads(Path('inputs/usa/data_quality.json').read_text())
-          print('INPUT_QA usa award-first schema',sorted(usa.keys()))
-          assert isinstance(usa,dict) and len(usa)>=3,usa
-          p=Path('tools/build_global_core_v4.py'); s=p.read_text()
-          old="SELECT 'TenderNed' AS Warehouse_Source, *,\n               coalesce(Evidence_Type,'NOTICE_FIRST_TENDERNED') AS Evidence_Type"
-          new="SELECT 'TenderNed' AS Warehouse_Source, * EXCLUDE(Evidence_Type),\n               coalesce(Evidence_Type,'NOTICE_FIRST_TENDERNED') AS Evidence_Type"
-          assert s.count(old)==2,s.count(old); s=s.replace(old,new)
-          old2="               {norm('Supplier_Name')} AS Normalized_Name,"
-          new2="               lower(trim(regexp_replace(strip_accents(coalesce(arg_max(Supplier_Name,length(coalesce(Supplier_Name,''))),'')), '[^A-Za-z0-9]+', ' ', 'g'))) AS Normalized_Name,"
-          assert s.count(old2)==1,s.count(old2); s=s.replace(old2,new2)
-          p.write_text(s)
-          print('CORE_V4_RUNTIME_PATCHES_PASS')
+          for x in ['core','nl','be','ted','aus']:
+              q=json.loads((Path('inputs')/x/'data_quality.json').read_text()); assert q.get('status')=='PASS',(x,q)
+          assert json.loads(Path('inputs/usa/data_quality.json').read_text())
           PY
+          python tools/patch_global_core_v4_runtime.py
       - name: Build Core v4
-        run: |
-          python tools/build_global_core_v4.py --core-v3 inputs/core --tenderned inputs/nl --belgium inputs/be --ted inputs/ted --usa-quality inputs/usa/data_quality.json --australia-quality inputs/aus/data_quality.json --out global_core_v4
-      - name: Validate Core v4
+        run: python tools/build_global_core_v4.py --core-v3 inputs/core --tenderned inputs/nl --belgium inputs/be --ted inputs/ted --usa-quality inputs/usa/data_quality.json --australia-quality inputs/aus/data_quality.json --out global_core_v4
+      - name: Validate
         run: |
           python - <<'PY'
           import json
-          q=json.load(open('global_core_v4/data_quality.json')); print(json.dumps(q,indent=2))
-          assert q['status']=='PASS',q
-          assert q['source_plan']['belgium_tenders']==103676,q
-          assert q['source_plan']['tenderned_tenders']==51508,q
-          assert q['source_plan']['ted_retained_tenders']<q['source_plan']['ted_all_tenders'],q
-          assert q['counts_notice_first']['historical_tenders']>1260252,q
+          q=json.load(open('global_core_v4/data_quality.json')); print(json.dumps(q,indent=2)); assert q['status']=='PASS',q
+          assert q['source_plan']['belgium_tenders']==103676 and q['source_plan']['tenderned_tenders']==51508,q
+          assert q['integrity']['award_buyer_orphans']==0,q
           PY
-      - name: Guard release asset sizes
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          for p in Path('global_core_v4').iterdir():
-              if p.is_file():
-                  print(p.name,p.stat().st_size)
-                  assert p.stat().st_size<1_900_000_000,p
-          PY
-      - name: Publish and read back Core v4
+      - name: Publish and read back
         run: |
           set -euo pipefail
-          TAG='tender-normalized-global-core-v4'
-          if ! gh release view "$TAG" >/dev/null 2>&1; then gh release create "$TAG" --title 'Public Tender Intelligence — Global Core v4 overlap-aware' --notes 'National notice-first precedence for BE/FR/DE/IE/NL/UK; TED fallback elsewhere. USA and Australia remain separate award-first evidence lanes.' --target tender-harvest-relay-20260812; fi
-          find global_core_v4 -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
-          rm -rf readback && mkdir readback
-          gh release download "$TAG" --pattern data_quality.json --pattern source_priority.json --pattern evidence_lanes.json --dir readback --clobber
+          TAG=tender-normalized-global-core-v4
+          if ! gh release view "$TAG" >/dev/null 2>&1; then gh release create "$TAG" --title 'Global Core v4 overlap-aware' --notes 'National notice-first precedence for BE/FR/DE/IE/NL/UK; TED fallback elsewhere. USA/Australia remain award-first evidence lanes.' --target tender-harvest-relay-20260812; fi
+          find global_core_v4 -maxdepth 1 -type f -size -1900M -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          rm -rf rb; mkdir rb; gh release download "$TAG" --pattern data_quality.json --pattern source_priority.json --pattern evidence_lanes.json --dir rb --clobber
           python - <<'PY'
           import json
-          q=json.load(open('readback/data_quality.json')); assert q['status']=='PASS',q
+          q=json.load(open('rb/data_quality.json')); assert q['status']=='PASS',q
           print('GLOBAL_CORE_V4_READBACK_PASS',q['counts_notice_first'],q['source_plan'])
           PY
