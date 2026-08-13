@@ -1,0 +1,70 @@
+name: TED dual-stack canonicalizer smoke
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/ted-dual-stack-smoke.yml'
+      - 'tools/tender_normalize_ted_bulk.py'
+      - 'tools/patch_ted_normalizer_runtime.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-ted-dual-stack-smoke
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download representative legacy and eForms official packages
+        run: |
+          set -euo pipefail
+          mkdir -p raw smoke
+          gh release download tender-raw-ted-official-bulk-v1 --pattern 'ted-monthly-2023-08.package.gz' --pattern 'ted-monthly-2024-09.package.gz' --dir raw --clobber
+          ls -lh raw
+      - name: Apply bounded runtime patch
+        run: python tools/patch_ted_normalizer_runtime.py
+      - name: Normalize both schema generations
+        run: |
+          python tools/tender_normalize_ted_bulk.py \
+            --package raw/ted-monthly-2023-08.package.gz \
+            --package raw/ted-monthly-2024-09.package.gz \
+            --out smoke/ted
+      - name: Enforce dual-stack quality gates
+        run: |
+          python - <<'PY'
+          import json
+          q=json.load(open('smoke/ted/data_quality.json'))
+          print(json.dumps(q,indent=2,ensure_ascii=False))
+          s=q['source_stats']
+          assert s.get('raw_xml',0) > 50000,q
+          assert s.get('legacy_xml',0) > 10000,q
+          assert s.get('eforms_xml',0) > 10000,q
+          assert s.get('parse_errors',0)/max(s['raw_xml'],1) < .01,q
+          assert q['canonical_tenders'] > 20000,q
+          assert q['canonical_awards'] > 5000,q
+          assert q['award_supplier_links'] > 3000,q
+          assert q['legacy_tenders'] > 5000,q
+          assert q['eforms_tenders'] > 5000,q
+          assert q['award_value_coverage_pct'] > 35,q
+          assert q['bidder_count_coverage_pct'] > 35,q
+          assert all(q['integrity'].values()),q['integrity']
+          print('TED_DUAL_STACK_SMOKE_PASS',q['canonical_tenders'],q['canonical_awards'],q['bidder_count_coverage_pct'])
+          PY
+      - name: Persist smoke QA and canonical sample
+        run: |
+          set -euo pipefail
+          TAG='tender-ted-dual-stack-smoke-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'TED dual-stack canonicalizer smoke v1' --notes 'Validated legacy TED_EXPORT + eForms UBL canonicalization on August 2023 and September 2024 official bulk packages.' --target tender-harvest-relay-20260812
+          fi
+          find smoke/ted -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
