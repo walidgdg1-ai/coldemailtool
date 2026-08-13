@@ -1,0 +1,80 @@
+name: Rescue Belgium BDA month 2024-02
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-month-rescue-2024-02.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  RAW_TAG: tender-raw-belgium-monthly-v2
+  MONTH: '2024-02'
+
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Skip if already durable
+        id: existing
+        run: |
+          set -euo pipefail
+          NAMES=$(gh release view "$RAW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          if printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.jsonl.gz" && printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.manifest.json"; then
+            echo 'skip=yes' >> "$GITHUB_OUTPUT"
+          else
+            echo 'skip=no' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install anonymous browser
+        if: steps.existing.outputs.skip != 'yes'
+        run: |
+          python -m pip install --disable-pip-version-check -q playwright
+          python -m playwright install --with-deps chromium >/dev/null
+      - name: Harvest month with fresh runner
+        if: steps.existing.outputs.skip != 'yes'
+        run: |
+          set -uo pipefail
+          SUCCESS=no
+          for ATTEMPT in 1 2 3 4; do
+            rm -rf "raw/month-$MONTH"
+            if python - <<'PY'
+          import asyncio,json,os
+          from pathlib import Path
+          from types import SimpleNamespace
+          from tools.belgium_public_month_harvest import main
+          month=os.environ['MONTH'];out=f'raw/month-{month}'
+          args=SimpleNamespace(month=month,out=out,delay_ms=150,retries=6)
+          try:
+              asyncio.run(main(args))
+          except SystemExit as exc:
+              if exc.code != 2: raise
+          p=Path(out)/f'belgium-bda-{month}.manifest.json';r=Path(out)/f'belgium-bda-{month}.jsonl.gz'
+          if not p.exists() or not r.exists(): raise SystemExit('month raw/manifest missing')
+          q=json.loads(p.read_text(encoding='utf-8'))
+          assert q['publicationDateFrom']==month+'-01',q
+          assert q['rows']>0 and q['pages']>0,q
+          print('BELGIUM_MONTH_RESCUE_MATERIALIZED',month,q['pages'],q['rows'])
+          PY
+            then SUCCESS=yes; break; fi
+            sleep $(( ATTEMPT * 15 ))
+          done
+          test "$SUCCESS" = yes
+      - name: Persist and read back
+        if: steps.existing.outputs.skip != 'yes'
+        run: |
+          set -euo pipefail
+          gh release upload "$RAW_TAG" --repo "$GITHUB_REPOSITORY" "raw/month-$MONTH/belgium-bda-$MONTH.jsonl.gz" "raw/month-$MONTH/belgium-bda-$MONTH.manifest.json" --clobber
+          NAMES=$(gh release view "$RAW_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.jsonl.gz"
+          printf '%s\n' "$NAMES" | grep -qx "belgium-bda-$MONTH.manifest.json"
+          echo "BELGIUM_MONTH_RESCUE_READBACK_PASS=$MONTH"
