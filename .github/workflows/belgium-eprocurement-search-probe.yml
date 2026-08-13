@@ -1,0 +1,61 @@
+name: Resolve Belgium e-Procurement public search API contract
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/belgium-eprocurement-search-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Resolve public search service routes from official frontend bundles
+        run: |
+          python - <<'PY'
+          import urllib.request,re,urllib.parse,json
+          root='https://www.publicprocurement.be/'
+          H={'User-Agent':'Mozilla/5.0 TenderResearch/1.0','Accept':'*/*'}
+          def get(u,limit=40_000_000):
+              req=urllib.request.Request(u,headers=H)
+              with urllib.request.urlopen(req,timeout=40) as r:return r.read(limit).decode('utf-8','replace')
+          env=get(root+'env.config.js')
+          print('ENV_CONFIG\n',env[:12000])
+          main=get(root+'assets/public-52DB_rqQ.js')
+          refs=set(re.findall(r'(?:\./|assets/)([A-Za-z0-9_.-]+\.js)',main))
+          # Include all obvious search/publication chunks named in the main entry point.
+          wanted=[x for x in refs if any(k in x.lower() for k in ('search','notice','publication','workspace','home','public'))]
+          print('WANTED_CHUNKS',wanted)
+          blobs={'MAIN':main}
+          for name in wanted:
+              u=root+'assets/'+name
+              try: blobs[name]=get(u)
+              except Exception as e: print('CHUNK_ERROR',name,repr(e))
+          needles=['publicationDateFrom','publicationDateTo','publicationLanguages','/api/sea/','SEA','searchNotices','searchPublic','notices/search','publication-workspaces']
+          for name,data in blobs.items():
+              for needle in needles:
+                  pos=0
+                  while True:
+                      i=data.find(needle,pos)
+                      if i<0:break
+                      print('\nCONTEXT',name,needle,'@',i)
+                      print(data[max(0,i-1800):min(len(data),i+3200)])
+                      pos=i+len(needle)
+          # Enumerate string literals that look like REST paths or query fields.
+          vals=set()
+          for data in blobs.values():
+              for s in re.findall(r'["\']([^"\']{1,350})["\']',data):
+                  sl=s.lower()
+                  if any(k in sl for k in ('publicationdate','/search','search/','notices','publication-workspace','pageable','pagesize','page=')):
+                      vals.add(s)
+          print('\nREST_LITERALS')
+          for s in sorted(vals):print(s)
+          print('BELGIUM_SEARCH_CONTRACT_PROBE_PASS chunks',len(blobs),'literals',len(vals))
+          PY
