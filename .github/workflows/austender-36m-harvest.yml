@@ -1,0 +1,126 @@
+name: Harvest and normalize AusTender 36 months
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/austender-36m-harvest.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: austender-36m-harvest
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Prepare resumable raw release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-raw-austender-ocds-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'AusTender OCDS — raw monthly contract notices v1' \
+              --notes 'Official Australian Government AusTender OCDS Contract Notice API. Monthly publication-date shards for 2023-08-01 through 2026-08-01 exclusive. Each shard follows links.next cursor pagination and retains the latest source release representation per contract ID.' \
+              --target tender-harvest-relay-20260812
+          fi
+
+      - name: Harvest every missing monthly shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > months.tsv
+          from datetime import date
+          y,m=2023,8
+          for _ in range(36):
+              start=date(y,m,1)
+              ny,nm=(y+1,1) if m==12 else (y,m+1)
+              end=date(ny,nm,1)
+              print(start.isoformat(),end.isoformat(),f'{y:04d}-{m:02d}',sep='\t')
+              y,m=ny,nm
+          PY
+          while IFS=$'\t' read -r START END KEY; do
+            ASSET="austender-${KEY}.contracts.jsonl.gz"
+            QA="austender-${KEY}.qa.json"
+            if gh release view tender-raw-austender-ocds-v1 --json assets --jq '.assets[].name' | grep -Fxq "$ASSET" && \
+               gh release view tender-raw-austender-ocds-v1 --json assets --jq '.assets[].name' | grep -Fxq "$QA"; then
+              echo "AUSTENDER_SKIP $KEY already persisted"
+              continue
+            fi
+            rm -rf shard && mkdir shard
+            python tools/austender_monthly_harvest.py --start "$START" --end "$END" --out shard
+            mv shard/contracts.jsonl.gz "shard/$ASSET"
+            mv shard/data_quality.json "shard/$QA"
+            gh release upload tender-raw-austender-ocds-v1 "shard/$ASSET" "shard/$QA" --clobber
+            echo "AUSTENDER_COMMITTED $KEY"
+          done < months.tsv
+
+      - name: Assert 36 monthly source shards and download readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          N=$(gh release view tender-raw-austender-ocds-v1 --json assets --jq '[.assets[].name | select(endswith(".contracts.jsonl.gz"))] | length')
+          Q=$(gh release view tender-raw-austender-ocds-v1 --json assets --jq '[.assets[].name | select(endswith(".qa.json"))] | length')
+          echo "RAW_SHARDS $N QA_SHARDS $Q"
+          test "$N" -eq 36
+          test "$Q" -eq 36
+          mkdir -p raw_readback
+          gh release download tender-raw-austender-ocds-v1 --pattern 'austender-*.contracts.jsonl.gz' --pattern 'austender-*.qa.json' --dir raw_readback --clobber
+          python - <<'PY'
+          import json,glob
+          qs=[json.load(open(p)) for p in glob.glob('raw_readback/*.qa.json')]
+          assert len(qs)==36,len(qs)
+          assert all(q['status'] in ('PASS','EMPTY') for q in qs),[(q['start'],q['status']) for q in qs]
+          assert sum(q['unique_contracts'] for q in qs)>1000
+          print('AUSTENDER_RAW_36M_PASS','contracts_shard_sum',sum(q['unique_contracts'] for q in qs),'pages',sum(q['pages'] for q in qs),'releases',sum(q['release_rows_seen'] for q in qs))
+          PY
+
+      - name: Normalize contract-grain warehouse
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARGS=()
+          for f in raw_readback/*.contracts.jsonl.gz; do ARGS+=(--input "$f"); done
+          python tools/austender_normalize.py "${ARGS[@]}" --out normalized
+          cat normalized/data_quality.json
+
+      - name: Validate and publish canonical AusTender warehouse
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          q=json.load(open('normalized/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['canonical_tenders']>1000,q
+          assert q['canonical_tenders']==q['canonical_awards'],q
+          assert all(q['integrity'].values()),q['integrity']
+          print('AUSTENDER_CANONICAL_PASS',q['canonical_tenders'],q['unique_buyers'],q['unique_suppliers'])
+          PY
+          TAG='tender-normalized-austender-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'AusTender OCDS canonical 36-month warehouse v1' \
+              --notes 'Official AusTender Contract Notice OCDS data, 2023-08-01 through 2026-08-01 exclusive. Canonical contract-grain award-first evidence; explicitly distinct from original opportunity notices.' \
+              --target tender-harvest-relay-20260812
+          fi
+          find normalized -type f -maxdepth 1 -print0 | while IFS= read -r -d '' f; do
+            test $(stat -c%s "$f") -lt 1900000000
+            gh release upload "$TAG" "$f" --clobber
+          done
+          rm -rf rb && mkdir rb
+          gh release download "$TAG" --pattern data_quality.json --dir rb --clobber
+          diff -u normalized/data_quality.json rb/data_quality.json
+          echo 'AUSTENDER_RELEASE_READBACK_PASS'
