@@ -40,6 +40,9 @@ jobs:
           gh release download tender-normalized-usa-awards-v1 --pattern data_quality.json --dir inputs/usa --clobber
           find inputs -type f -printf '%p %s bytes\n' | sort
 
+      - name: Apply audited builder patch
+        run: python tools/patch_global_core_v3_builder.py
+
       - name: Build notice-first core and federated evidence registry
         run: |
           python tools/build_global_core_v3.py \
