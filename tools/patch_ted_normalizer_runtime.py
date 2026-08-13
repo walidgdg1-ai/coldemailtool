@@ -20,6 +20,23 @@ s=s.replace(old_award_id,new_award_id,1)
 if 'from itertools import groupby' not in s:
     s=s.replace('from collections import defaultdict\n','from collections import defaultdict\nfrom itertools import groupby\n',1)
 
+# Awards may be repeated/revised inside official packages. INSERT OR REPLACE updates the award
+# row, but SQLite would otherwise leave supplier bridge rows from an older revision behind.
+# Delete the old bridge set before replacing an award so the final bridge table is authoritative.
+old_ingest="""            for a in aws:
+                c.execute('INSERT OR REPLACE INTO awards VALUES ('+','.join('?'*len(acols))+')',[a.get(k) for k in acols]);stats['award_rows']+=1
+            for b in brs:
+                c.execute('INSERT OR REPLACE INTO bridges VALUES ('+','.join('?'*len(bcols))+')',[b.get(k) for k in bcols]);stats['bridge_rows']+=1
+"""
+new_ingest="""            for a in aws:
+                c.execute('DELETE FROM bridges WHERE award_id=?',(a.get('award_id'),))
+                c.execute('INSERT OR REPLACE INTO awards VALUES ('+','.join('?'*len(acols))+')',[a.get(k) for k in acols]);stats['award_rows']+=1
+            for b in brs:
+                c.execute('INSERT OR REPLACE INTO bridges VALUES ('+','.join('?'*len(bcols))+')',[b.get(k) for k in bcols]);stats['bridge_rows']+=1
+"""
+if old_ingest not in s:raise SystemExit('award ingest block not found')
+s=s.replace(old_ingest,new_ingest,1)
+
 old_tenders="""    # One canonical procurement per exact linkage key. Earliest primary notice defines publication date; richest fields are selected by length/value presence.
     rows=c.execute('SELECT procurement_key,MIN(publication_date) FROM notices WHERE primary_notice=1 GROUP BY procurement_key').fetchall();tenders=[]
     for pk,pub in rows:
@@ -55,7 +72,8 @@ if old_tenders not in s:raise SystemExit('tender N+1 block not found')
 s=s.replace(old_tenders,new_tenders,1)
 
 # Materialize awards and supplier bridge once. This simultaneously avoids cursor invalidation and
-# replaces O(awards) nested SQLite supplier queries with O(1) dictionary lookups.
+# replaces O(awards) nested SQLite supplier queries with O(1) dictionary lookups. Supplier_Count
+# is derived from the final bridge set, not from a possibly superseded notice revision.
 old_awards="""    awards=[]
     for r in c.execute('SELECT '+','.join(acols)+' FROM awards'):
         a=dict(zip(acols,r));hid=hid_by_pk.get(a['procurement_key'])
@@ -74,7 +92,8 @@ new_awards="""    awards=[]
         if not hid:continue
         bid,bname,country=buyer_by_pk[a['procurement_key']]
         bs=bridge_by_award.get(a['award_id'],[]);first=bs[0] if len(bs)==1 else (None,None,None,None)
-        awards.append({'Award_ID':a['award_id'],'Historical_Tender_ID':hid,'Buyer_ID':bid,'Buyer_Name':bname,'Supplier_ID':first[0],'Supplier_Name':first[1],'Supplier_Country':first[2],'Award_Date':iso_date(a['award_date']),'Award_Value':a['value'],'Currency':a['currency'],'Bidder_Count':a['bidder_count'] if a['bidder_count'] is not None else UNKNOWN,'Supplier_Count':a['supplier_count'] if a['supplier_count'] is not None else UNKNOWN,'Value_Field':a['value_field'],'Schema_Generation':a['schema_generation'],'Source_Notice_ID':a['notice_id']})
+        supplier_count=len(bs) if bs else UNKNOWN
+        awards.append({'Award_ID':a['award_id'],'Historical_Tender_ID':hid,'Buyer_ID':bid,'Buyer_Name':bname,'Supplier_ID':first[0],'Supplier_Name':first[1],'Supplier_Country':first[2],'Award_Date':iso_date(a['award_date']),'Award_Value':a['value'],'Currency':a['currency'],'Bidder_Count':a['bidder_count'] if a['bidder_count'] is not None else UNKNOWN,'Supplier_Count':supplier_count,'Value_Field':a['value_field'],'Schema_Generation':a['schema_generation'],'Source_Notice_ID':a['notice_id']})
 """
 if old_awards not in s:raise SystemExit('award cursor block not found')
 s=s.replace(old_awards,new_awards,1)
@@ -97,4 +116,4 @@ new2="""'award_tender_fk':all(x['Historical_Tender_ID'] in tender_ids for x in a
 if old2 not in s:raise SystemExit('integrity block not found')
 s=s.replace(old2,new2,1)
 p.write_text(s,encoding='utf-8')
-print('TED dual-stack runtime patch applied: package-namespaced legacy fallbacks + linear procurement grouping + preloaded award supplier bridge + O(1) FK/integrity QA')
+print('TED dual-stack runtime patch applied: package-namespaced legacy fallbacks + stale-bridge cleanup + linear procurement grouping + authoritative bridge-derived supplier counts + O(1) FK/integrity QA')
