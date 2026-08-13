@@ -37,7 +37,7 @@ jobs:
           gh release download tender-normalized-usa-awards-v1 --pattern data_quality.json --dir inputs/usa --clobber
           gh release download tender-normalized-austender-v1 --pattern data_quality.json --dir inputs/aus --clobber
           find inputs -type f -printf '%p %s bytes\n' | sort
-      - name: Validate inputs and patch TenderNed projection
+      - name: Validate inputs and apply audited runtime patches
         run: |
           python - <<'PY'
           import json
@@ -51,8 +51,12 @@ jobs:
           p=Path('tools/build_global_core_v4.py'); s=p.read_text()
           old="SELECT 'TenderNed' AS Warehouse_Source, *,\n               coalesce(Evidence_Type,'NOTICE_FIRST_TENDERNED') AS Evidence_Type"
           new="SELECT 'TenderNed' AS Warehouse_Source, * EXCLUDE(Evidence_Type),\n               coalesce(Evidence_Type,'NOTICE_FIRST_TENDERNED') AS Evidence_Type"
-          assert s.count(old)==2,s.count(old)
-          p.write_text(s.replace(old,new))
+          assert s.count(old)==2,s.count(old); s=s.replace(old,new)
+          old2="               {norm('Supplier_Name')} AS Normalized_Name,"
+          new2="               lower(trim(regexp_replace(strip_accents(coalesce(arg_max(Supplier_Name,length(coalesce(Supplier_Name,''))),'')), '[^A-Za-z0-9]+', ' ', 'g'))) AS Normalized_Name,"
+          assert s.count(old2)==1,s.count(old2); s=s.replace(old2,new2)
+          p.write_text(s)
+          print('CORE_V4_RUNTIME_PATCHES_PASS')
           PY
       - name: Build Core v4
         run: |
