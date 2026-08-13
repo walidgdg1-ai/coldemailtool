@@ -31,13 +31,16 @@ jobs:
           from pathlib import Path
           con=duckdb.connect()
           result={}
+          def qi(s): return '"'+s.replace('"','""')+'"'
           for name,key in [('buyers','Buyer_ID'),('suppliers','Supplier_ID')]:
               p=f'qa/{name}.parquet'
               total,distinct_keys=con.execute(f"SELECT count(*),count(distinct Warehouse_Source||'|'||{key}) FROM read_parquet('{p}')").fetchone()
               dup_keys,dup_rows=con.execute(f"SELECT count(*),coalesce(sum(n-1),0) FROM (SELECT Warehouse_Source,{key},count(*) n FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1)").fetchone()
               distinct_rows=con.execute(f"SELECT count(*) FROM (SELECT DISTINCT * FROM read_parquet('{p}'))").fetchone()[0]
-              conflict_keys=con.execute(f"SELECT count(*) FROM (SELECT Warehouse_Source,{key},count(*) n,count(distinct hash(*)) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 AND count(distinct hash(*))>1)").fetchone()[0]
-              top=con.execute(f"SELECT Warehouse_Source,{key},count(*) n,count(distinct hash(*)) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 ORDER BY n DESC LIMIT 20").fetchall()
+              cols=[r[0] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{p}')").fetchall()]
+              row_expr="md5(concat_ws(chr(31),"+','.join(f"coalesce(cast({qi(c)} as varchar),'∅')" for c in cols)+"))"
+              conflict_keys=con.execute(f"SELECT count(*) FROM (SELECT Warehouse_Source,{key},count(*) n,count(distinct {row_expr}) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 AND count(distinct {row_expr})>1)").fetchone()[0]
+              top=con.execute(f"SELECT Warehouse_Source,{key},count(*) n,count(distinct {row_expr}) versions FROM read_parquet('{p}') GROUP BY 1,2 HAVING count(*)>1 ORDER BY n DESC LIMIT 20").fetchall()
               result[name]={'rows':total,'source_entity_keys':distinct_keys,'duplicate_keys':dup_keys,'extra_rows_from_duplicate_keys':int(dup_rows),'distinct_full_rows':distinct_rows,'conflicting_duplicate_keys':conflict_keys,'top_duplicate_keys':[list(x) for x in top]}
           Path('qa/entity_duplicate_audit.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
           print(json.dumps(result,indent=2))
