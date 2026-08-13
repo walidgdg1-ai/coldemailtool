@@ -65,8 +65,11 @@ async def run(args):
                 page_size_select=sel;break
         if page_size_select is None:raise RuntimeError('Public BDA 10/25/50/100 page-size selector not found')
 
+        # BOSA renders the native select hidden behind its visible component. This is still the
+        # public UI control; force=True merely lets Playwright dispatch the same change event to
+        # that hidden native select instead of rejecting it for lack of CSS visibility.
         async with page.expect_response(lambda r: ENDPOINT_FRAGMENT in r.url.lower(),timeout=30000) as info:
-            await page_size_select.select_option('100')
+            await page_size_select.select_option('100',force=True)
         resp=await info.value
         if resp.status!=200:raise RuntimeError(f'BDA page-size request HTTP {resp.status}')
         body=await resp.json()
@@ -105,8 +108,6 @@ async def run(args):
                     nxt=page.locator('button[aria-label="pagination.common.nextPage"]')
                     if not await nxt.count() or not await nxt.first.is_enabled():
                         done=True;break
-                    # Do not prefetch a page that belongs to the next chunk after the final row
-                    # unless we preserve its body/current_page as the next chunk start.
                     async with page.expect_response(lambda r: ENDPOINT_FRAGMENT in r.url.lower(),timeout=30000) as ni:
                         await nxt.first.click()
                     rr=await ni.value
