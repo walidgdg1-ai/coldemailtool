@@ -1,0 +1,76 @@
+name: SPM MI v3 derived summary
+on:
+  workflow_dispatch:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/spm-mi-v3-derived-summary.yml']
+permissions:
+  contents: write
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: walidgdg1-ai/coldemailtool
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+      - name: Download validated MI v3
+        run: |
+          mkdir -p x out
+          gh release download tender-global-market-intelligence-v3 --pattern '*.csv' --pattern 'data_quality.json' --dir x
+          python - <<'PY'
+          import json
+          q=json.load(open('x/data_quality.json')); assert q['status']=='PASS',q
+          assert q['row_counts']['notice_market_opportunities']==2129,q
+          print('MI_V3_GATE_PASS',q)
+          PY
+      - name: Derive SPM-relevant cohort evidence
+        run: |
+          python - <<'PY'
+          import csv,re,math,json,collections,os
+          src='x/notice_market_opportunity_rank.csv'
+          with open(src,encoding='utf-8-sig',newline='') as f: rows=list(csv.DictReader(f))
+          inc=re.compile(r'web|website|internet|portal|cms|software|data|digit|catalog|document|desktop|publish|print|reprograph|binding|finish|graphic|design|advertis|marketing|media|video|film|photo|translation|language|transcri|subtitle|caption|content|communication|survey|research|training|e-learning|hosting|automation|rpa|mail|signage|sign|promotional|newsletter|layout|editorial|copy|accessib',re.I)
+          exc=re.compile(r'medical|hospital|laboratory|construction|civil engineering|road works|building construction|weapon|military vehicle|pharmaceutical|surgical|fire engine|sewer|wastewater|electricity distribution|railway construction',re.I)
+          def n(r,k,d=0.0):
+            try:return float(r.get(k) or d)
+            except:return d
+          rel=[]
+          for r in rows:
+            txt=' '.join([r.get('Procurement_Family',''),r.get('Subcategory','')])
+            if not inc.search(txt) or exc.search(txt): continue
+            tc=n(r,'Tender_Count'); bc=n(r,'Buyer_Count'); rep=n(r,'Repeat_Buyer_Share'); hhi=n(r,'Hhi',0.5); top=n(r,'Top20_Supplier_Share',1); knownb=n(r,'Known_Bidder_Awards'); mb=n(r,'Median_Bidders',0); single=n(r,'Single_Bid_Share',0); kva=n(r,'Known_Value_Awards'); med=n(r,'Median_Award_Value',0); opp=n(r,'Opportunity_Score',0)
+            comp_conf=min(1,knownb/max(10,n(r,'Award_Count',0))) if knownb else 0
+            lowcomp=(single if comp_conf>=.3 else .5)
+            frag=max(0,min(1,1-hhi))
+            smallfit=1.0 if 5000<=med<=100000 else .85 if 1000<=med<5000 or 100000<med<=250000 else .55 if med else .5
+            score=100*(.28*opp+.16*min(1,math.log1p(tc)/math.log(5000))+.13*min(1,math.log1p(bc)/math.log(3000))+.12*rep+.12*frag+.09*lowcomp+.10*smallfit)
+            rr=dict(r); rr['SPM_Cohort_Evidence_Score']=round(score,2); rr['Bidder_Evidence_Coverage']=round(knownb/max(1,n(r,'Award_Count')),3); rr['Value_Evidence_Coverage']=round(kva/max(1,n(r,'Award_Count')),3); rr['Value_Fit_Component']=smallfit; rr['Competition_Component']=lowcomp; rel.append(rr)
+          rel.sort(key=lambda r:float(r['SPM_Cohort_Evidence_Score']),reverse=True)
+          fields=list(rel[0]) if rel else []
+          with open('out/spm_relevant_cohorts_mi_v3.csv','w',encoding='utf-8',newline='') as f:w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(rel)
+          weird=[r for r in rel if n(r,'Known_Value_Awards')>=5 and 500<=n(r,'Median_Award_Value')<=100000 and (n(r,'Median_Bidders')<=2 if n(r,'Known_Bidder_Awards')>=10 else True) and n(r,'Distinct_Supplier_Count')>=5]
+          weird.sort(key=lambda r:(n(r,'Single_Bid_Share',.5),n(r,'Tender_Count')),reverse=True)
+          with open('out/weird_money_mi_v3.csv','w',encoding='utf-8',newline='') as f:w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(weird)
+          # country/source rollup over relevant cohorts; values kept as counts/coverage only, never cross-currency spend.
+          ag=collections.defaultdict(lambda:collections.defaultdict(float))
+          for r in rel:
+            k=(r['Warehouse_Source'],r['Country']); a=ag[k]; a['cohorts']+=1;a['tenders']+=n(r,'Tender_Count');a['awards']+=n(r,'Award_Count');a['buyers']+=n(r,'Buyer_Count');a['known_bidders']+=n(r,'Known_Bidder_Awards');a['known_values']+=n(r,'Known_Value_Awards');a['score_x_t']+=n(r,'SPM_Cohort_Evidence_Score')*max(1,n(r,'Tender_Count'));a['repeat_x_t']+=n(r,'Repeat_Buyer_Share')*max(1,n(r,'Tender_Count'));a['tweight']+=max(1,n(r,'Tender_Count'))
+          cr=[]
+          for (s,c),a in ag.items():cr.append({'Warehouse_Source':s,'Country':c,'Relevant_Cohorts':int(a['cohorts']),'Relevant_Tender_Count':int(a['tenders']),'Relevant_Award_Count':int(a['awards']),'Buyer_Count_Summed_Across_Cohorts':int(a['buyers']),'Known_Bidder_Award_Rows':int(a['known_bidders']),'Known_Value_Award_Rows':int(a['known_values']),'Tender_Weighted_SPM_Evidence_Score':round(a['score_x_t']/a['tweight'],2),'Tender_Weighted_Repeat_Buyer_Share':round(a['repeat_x_t']/a['tweight'],3)})
+          cr.sort(key=lambda x:x['Tender_Weighted_SPM_Evidence_Score'],reverse=True)
+          with open('out/country_relevant_summary_mi_v3.csv','w',encoding='utf-8',newline='') as f:w=csv.DictWriter(f,fieldnames=list(cr[0]));w.writeheader();w.writerows(cr)
+          summary={'relevant_cohorts':len(rel),'weird_money_rows':len(weird),'top20':rel[:20],'weird_top20':weird[:20],'country_summary':cr}
+          open('out/summary.json','w').write(json.dumps(summary,indent=2,ensure_ascii=False))
+          print('===== SUMMARY =====');print(json.dumps(summary,ensure_ascii=False))
+          PY
+      - name: Persist readable DERIVED fallback
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_deep_v1_mi_v3'; mkdir -p "$DEST"; cp out/* "$DEST/"
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"; git commit -m 'Persist SPM relevant MI v3 derived evidence' || true
+          git pull --rebase origin tender-harvest-relay-20260812; git push origin HEAD:tender-harvest-relay-20260812
