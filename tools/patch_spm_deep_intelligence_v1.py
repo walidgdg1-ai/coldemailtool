@@ -16,8 +16,18 @@ if old2 not in s:
     raise SystemExit('SCORE_ALIAS_PATCH_TARGET_NOT_FOUND')
 s=s.replace(old2,new2,1)
 
-# DuckDB treats MACRO as syntax in unquoted aliases. Use a descriptive field name everywhere.
 s=s.replace('Macro','Macro_Category')
+
+# Exact multi-quantile sorting across millions of joined awards spills beyond hosted-runner disk.
+# Use bounded-memory approximate quantiles for the descriptive pricing table only.
+s=s.replace('quantile_cont(Award_Value,0.10)', 'approx_quantile(Award_Value,0.10)')
+s=s.replace('quantile_cont(Award_Value,0.25)', 'approx_quantile(Award_Value,0.25)')
+s=s.replace('median(Award_Value) Median_Award_Value', 'approx_quantile(Award_Value,0.50) Median_Award_Value')
+s=s.replace('quantile_cont(Award_Value,0.75)', 'approx_quantile(Award_Value,0.75)')
+s=s.replace('quantile_cont(Award_Value,0.90)', 'approx_quantile(Award_Value,0.90)')
+# Make the contract explicit in persisted QA text.
+s=s.replace("'Currency-specific values are never summed or averaged across currencies; only within-currency distributions and dimensionless shares are used.',",
+            "'Currency-specific values are never summed or averaged across currencies; only within-currency distributions and dimensionless shares are used.',\n            'P10/P25/P50/P75/P90 award-value distributions use bounded-memory approx_quantile over the full matched corpus.',")
 
 p.write_text(s,encoding='utf-8')
 print('SPM_DEEP_V1_RUNTIME_PATCH_PASS')
