@@ -1,0 +1,151 @@
+name: SPM open-world concept enrichment v1
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-spm-open-world-concept-enrichment-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-spm-open-world-concept-enrichment-v1
+  cancel-in-progress: true
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+
+      - name: Free runner disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download validated inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p core known concepts enriched
+          gh release download tender-normalized-global-core-v4 \
+            --pattern historical_tenders.parquet \
+            --pattern awards.parquet \
+            --pattern award_suppliers.parquet \
+            --pattern data_quality.json \
+            --dir core --clobber
+          gh release download tender-spm-tender-discovery-v1 \
+            --pattern matched_tenders.parquet \
+            --dir known --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          c=q.get('counts',q.get('counts_notice_first',{}))
+          assert q['status']=='PASS',q
+          assert c.get('historical_tenders')==2250547,c
+          assert c.get('awards')==4286784,c
+          assert c.get('award_suppliers')==3937663,c
+          print('OPEN_WORLD_CONCEPT_INPUT_GATE_PASS',c)
+          PY
+
+      - name: Consolidate residual signals into business concepts
+        run: |
+          python tools/build_spm_open_world_concepts_v1.py \
+            --core core \
+            --known-matched known/matched_tenders.parquet \
+            --out concepts \
+            --min-concept-volume 20
+
+      - name: Prepare reusable targeted award enricher
+        run: |
+          python tools/patch_targeted_enrichment_for_open_world.py
+          python -m py_compile tools/build_spm_targeted_award_enrichment_open_world_v1.py
+
+      - name: Enrich new concepts with awards competition and suppliers
+        run: |
+          python tools/build_spm_targeted_award_enrichment_open_world_v1.py \
+            --matched concepts/matched_tenders.parquet \
+            --matrix concepts/open_world_concept_matrix.csv \
+            --awards core/awards.parquet \
+            --suppliers core/award_suppliers.parquet \
+            --out enriched
+
+      - name: Validate final outputs
+        run: |
+          python - <<'PY'
+          import json,csv,os
+          c=json.load(open('concepts/data_quality.json'))
+          e=json.load(open('enriched/data_quality.json'))
+          assert c['status']=='PASS',c
+          assert c['residual_tenders']>2000000,c
+          assert c['retained_concepts']>=10,c
+          assert c['unique_residual_tenders_matched']>=500,c
+          assert e['status']=='PASS',e
+          assert e['counts']['spm_niches']>=10,e
+          assert e['counts']['spm_matched_tenders']>=500,e
+          for f in ['spm_enriched_matrix.csv','top20_enriched_opportunities.csv','top20_easiest_money_enriched.csv','top20_expected_profit_proxy.csv','top20_low_competition.csv','live_scoring_priors.json','QUANTITATIVE_READOUT.md']:
+            assert os.path.exists('enriched/'+f),f
+          print('OPEN_WORLD_CONCEPT_ENRICHMENT_QA_PASS',c,e)
+          PY
+
+      - name: Publish derived release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-open-world-concept-enrichment-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — SPM Open-World Concept Enrichment v1' \
+              --notes 'DERIVED concept layer over the 2.19M Core v4 residual notices, followed by targeted award/competition/supplier enrichment. No historical DCE dependency.' \
+              --target tender-harvest-relay-20260812
+          fi
+          for f in concepts/*.csv concepts/*.json concepts/*.md enriched/*.csv enriched/*.json enriched/*.md; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+
+      - name: Persist readable outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_open_world_concept_enrichment_v1'
+          mkdir -p "$DEST"
+          cp concepts/CONCEPT_READOUT.md "$DEST/"
+          cp concepts/data_quality.json "$DEST/concept_data_quality.json"
+          cp concepts/open_world_concept_matrix.csv "$DEST/"
+          cp concepts/representative_tenders_by_concept.csv "$DEST/"
+          cp enriched/QUANTITATIVE_READOUT.md "$DEST/"
+          cp enriched/data_quality.json "$DEST/enrichment_data_quality.json"
+          cp enriched/spm_enriched_matrix.csv "$DEST/"
+          cp enriched/top20_enriched_opportunities.csv "$DEST/"
+          cp enriched/top20_easiest_money_enriched.csv "$DEST/"
+          cp enriched/top20_expected_profit_proxy.csv "$DEST/"
+          cp enriched/top20_low_competition.csv "$DEST/"
+          cp enriched/live_scoring_priors.json "$DEST/open_world_live_scoring_priors.json"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist SPM open-world concept enrichment v1 outputs'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
+
+      - name: Final disk report
+        run: df -h /
