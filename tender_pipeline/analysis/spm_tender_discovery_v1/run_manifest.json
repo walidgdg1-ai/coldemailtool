@@ -1,0 +1,65 @@
+{
+  "version": "SPM_TENDER_DISCOVERY_V1",
+  "files": {
+    "top20_ai_leverage.csv": {
+      "bytes": 7534,
+      "sha256": "bbee3672962087c8c21f925be145b47b9234836c02eb9e6e0ff8bd5271bbee7d"
+    },
+    "spm_discovery_matrix.csv": {
+      "bytes": 16564,
+      "sha256": "7947f80868e1dafbcf45c02a9e0502ea2edcda413c20f09d6ec5c23f232d8b6a"
+    },
+    "top20_middleman_proxy.csv": {
+      "bytes": 7500,
+      "sha256": "2a98d3375194741fd3244c42687de866a21c8c96d65a478efe43f967f1d3c481"
+    },
+    "matched_tenders.parquet": {
+      "bytes": 18777519,
+      "sha256": "0154d70e73675a7e661772d257174ae9494ddcecaf03f24f904663d2c0cda0fd"
+    },
+    "data_discovered_cohorts.csv": {
+      "bytes": 215719,
+      "sha256": "a3b87ed276597db9d245114858054a2d03372d20daa5ce272add1f1279746f86"
+    },
+    "READOUT.md": {
+      "bytes": 1730,
+      "sha256": "65c64f6ddc9346ce0a03aa36a1fcb625cc688c9dcff7651e9bac467dc3899fa6"
+    },
+    "entry_signal_mentions.csv": {
+      "bytes": 5124,
+      "sha256": "c9818308c41b97fe817ac5da59eaa684336aa1b5351bf6accc351a69a295522a"
+    },
+    "top50_discovery.csv": {
+      "bytes": 16564,
+      "sha256": "7947f80868e1dafbcf45c02a9e0502ea2edcda413c20f09d6ec5c23f232d8b6a"
+    },
+    "country_niche_fit.csv": {
+      "bytes": 59213,
+      "sha256": "83a0fb2846bd56ede432eceafa3f5d77fdc025769e7cfa67f9e8ce726b5ba214"
+    },
+    "data_quality.json": {
+      "bytes": 583,
+      "sha256": "038187c49f7a7ab18769f715cc0b149981a5f48ca1ab19ee29f2ae29c2666289"
+    },
+    "recurring_buyers_by_niche.csv": {
+      "bytes": 360608,
+      "sha256": "5f5227d8ca3ca132066745618f49e6b6f52f92c0acbea6bed2f96a935eb07ea8"
+    },
+    "top20_easy_money_proxy.csv": {
+      "bytes": 7464,
+      "sha256": "13ced0481507a92e629cb2ece147b4dad2f843623d1ca303c6fe4739f5bc8b0a"
+    },
+    "representative_tenders.csv": {
+      "bytes": 165768,
+      "sha256": "b2404daa03399f450c1dd0470fdb36acbac9b05f9ad807e98600966fe07b2e6f"
+    },
+    "seasonality_by_niche.csv": {
+      "bytes": 20430,
+      "sha256": "429234e5c89afc88cc63a9a54be8973fdc62dd4cddc0d922ce7b5655c0901351"
+    },
+    "unmatched_high_lean_title_terms.csv": {
+      "bytes": 14406,
+      "sha256": "b50872662dd67505fbf0da29163ba7786728ee9a45b76d4a3eb37948020a1fa7"
+    }
+  }
+}

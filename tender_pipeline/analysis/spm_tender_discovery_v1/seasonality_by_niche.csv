@@ -1,0 +1,539 @@
+Niche,Calendar_Month,Tender_Count,Unique_Buyers
+AI chatbot / assistant,1,15,12
+AI chatbot / assistant,2,9,6
+AI chatbot / assistant,3,14,10
+AI chatbot / assistant,4,16,13
+AI chatbot / assistant,5,14,12
+AI chatbot / assistant,6,9,7
+AI chatbot / assistant,7,13,8
+AI chatbot / assistant,8,9,6
+AI chatbot / assistant,9,11,8
+AI chatbot / assistant,10,8,7
+AI chatbot / assistant,11,14,9
+AI chatbot / assistant,12,7,7
+Animation / motion design,1,1,1
+Animation / motion design,2,1,1
+Animation / motion design,3,2,2
+Animation / motion design,4,4,4
+Animation / motion design,7,4,3
+Animation / motion design,8,2,2
+Animation / motion design,9,3,3
+Animation / motion design,10,2,2
+Animation / motion design,11,1,1
+Animation / motion design,12,1,1
+Annual report / publication layout,1,7,7
+Annual report / publication layout,2,7,7
+Annual report / publication layout,3,3,3
+Annual report / publication layout,4,5,4
+Annual report / publication layout,5,4,4
+Annual report / publication layout,6,7,5
+Annual report / publication layout,7,2,2
+Annual report / publication layout,8,7,7
+Annual report / publication layout,9,3,3
+Annual report / publication layout,10,3,3
+Annual report / publication layout,11,1,1
+Annual report / publication layout,12,3,3
+Brand identity / visual identity,1,41,34
+Brand identity / visual identity,2,34,27
+Brand identity / visual identity,3,45,40
+Brand identity / visual identity,4,52,44
+Brand identity / visual identity,5,38,33
+Brand identity / visual identity,6,53,44
+Brand identity / visual identity,7,39,35
+Brand identity / visual identity,8,41,32
+Brand identity / visual identity,9,39,30
+Brand identity / visual identity,10,41,32
+Brand identity / visual identity,11,39,33
+Brand identity / visual identity,12,39,35
+Brochure / flyer / poster printing,1,652,427
+Brochure / flyer / poster printing,2,673,461
+Brochure / flyer / poster printing,3,742,471
+Brochure / flyer / poster printing,4,739,469
+Brochure / flyer / poster printing,5,712,475
+Brochure / flyer / poster printing,6,708,463
+Brochure / flyer / poster printing,7,675,452
+Brochure / flyer / poster printing,8,609,398
+Brochure / flyer / poster printing,9,734,526
+Brochure / flyer / poster printing,10,797,577
+Brochure / flyer / poster printing,11,752,520
+Brochure / flyer / poster printing,12,661,444
+CMS development / migration,1,24,13
+CMS development / migration,2,21,9
+CMS development / migration,3,15,10
+CMS development / migration,4,22,16
+CMS development / migration,5,22,12
+CMS development / migration,6,21,12
+CMS development / migration,7,22,18
+CMS development / migration,8,17,13
+CMS development / migration,9,22,14
+CMS development / migration,10,29,17
+CMS development / migration,11,23,18
+CMS development / migration,12,21,16
+Cataloguing / indexing / metadata,2,4,4
+Cataloguing / indexing / metadata,3,1,1
+Cataloguing / indexing / metadata,4,2,2
+Cataloguing / indexing / metadata,5,2,2
+Cataloguing / indexing / metadata,6,1,1
+Cataloguing / indexing / metadata,7,2,2
+Cataloguing / indexing / metadata,8,2,1
+Cataloguing / indexing / metadata,9,4,3
+Cataloguing / indexing / metadata,10,3,3
+Cataloguing / indexing / metadata,11,3,3
+Cataloguing / indexing / metadata,12,3,2
+Copywriting / editorial content,1,76,66
+Copywriting / editorial content,2,88,72
+Copywriting / editorial content,3,109,90
+Copywriting / editorial content,4,119,105
+Copywriting / editorial content,5,88,78
+Copywriting / editorial content,6,95,79
+Copywriting / editorial content,7,92,83
+Copywriting / editorial content,8,84,80
+Copywriting / editorial content,9,100,83
+Copywriting / editorial content,10,105,90
+Copywriting / editorial content,11,92,79
+Copywriting / editorial content,12,92,79
+Data cleaning / deduplication,1,9,8
+Data cleaning / deduplication,2,3,1
+Data cleaning / deduplication,3,12,9
+Data cleaning / deduplication,4,6,3
+Data cleaning / deduplication,5,9,6
+Data cleaning / deduplication,6,2,2
+Data cleaning / deduplication,7,7,5
+Data cleaning / deduplication,8,1,1
+Data cleaning / deduplication,9,2,2
+Data cleaning / deduplication,10,4,4
+Data cleaning / deduplication,11,5,3
+Data cleaning / deduplication,12,8,6
+Data entry / back-office processing,1,5,4
+Data entry / back-office processing,2,6,6
+Data entry / back-office processing,3,7,6
+Data entry / back-office processing,4,12,6
+Data entry / back-office processing,5,6,4
+Data entry / back-office processing,6,11,8
+Data entry / back-office processing,7,10,7
+Data entry / back-office processing,8,5,5
+Data entry / back-office processing,9,4,4
+Data entry / back-office processing,10,8,7
+Data entry / back-office processing,11,7,5
+Data entry / back-office processing,12,9,7
+Desk research / information collection,1,6,6
+Desk research / information collection,2,1,1
+Desk research / information collection,3,4,3
+Desk research / information collection,4,2,2
+Desk research / information collection,5,2,2
+Desk research / information collection,6,8,6
+Desk research / information collection,7,4,2
+Desk research / information collection,8,1,1
+Desk research / information collection,9,2,2
+Desk research / information collection,10,5,4
+Desk research / information collection,11,4,4
+Desk research / information collection,12,4,3
+Digital marketing / SEO / campaigns,1,51,38
+Digital marketing / SEO / campaigns,2,30,22
+Digital marketing / SEO / campaigns,3,54,32
+Digital marketing / SEO / campaigns,4,39,23
+Digital marketing / SEO / campaigns,5,47,31
+Digital marketing / SEO / campaigns,6,47,28
+Digital marketing / SEO / campaigns,7,48,35
+Digital marketing / SEO / campaigns,8,28,23
+Digital marketing / SEO / campaigns,9,41,25
+Digital marketing / SEO / campaigns,10,49,28
+Digital marketing / SEO / campaigns,11,33,22
+Digital marketing / SEO / campaigns,12,46,26
+Direct mail / envelope / routing,1,8,8
+Direct mail / envelope / routing,2,8,7
+Direct mail / envelope / routing,3,8,8
+Direct mail / envelope / routing,4,8,8
+Direct mail / envelope / routing,5,9,9
+Direct mail / envelope / routing,6,9,7
+Direct mail / envelope / routing,7,7,7
+Direct mail / envelope / routing,8,7,7
+Direct mail / envelope / routing,9,4,4
+Direct mail / envelope / routing,10,7,7
+Direct mail / envelope / routing,11,8,8
+Direct mail / envelope / routing,12,5,5
+Document conversion / PDF remediation,7,1,1
+Document digitization / scanning,1,580,278
+Document digitization / scanning,2,631,275
+Document digitization / scanning,3,722,300
+Document digitization / scanning,4,752,336
+Document digitization / scanning,5,608,292
+Document digitization / scanning,6,663,318
+Document digitization / scanning,7,705,340
+Document digitization / scanning,8,622,277
+Document digitization / scanning,9,698,281
+Document digitization / scanning,10,722,322
+Document digitization / scanning,11,729,300
+Document digitization / scanning,12,659,317
+E-learning / training content,1,44,29
+E-learning / training content,2,50,33
+E-learning / training content,3,53,42
+E-learning / training content,4,54,38
+E-learning / training content,5,48,33
+E-learning / training content,6,39,25
+E-learning / training content,7,55,35
+E-learning / training content,8,45,35
+E-learning / training content,9,55,34
+E-learning / training content,10,65,38
+E-learning / training content,11,54,37
+E-learning / training content,12,51,36
+Event audiovisual / livestream,1,6,4
+Event audiovisual / livestream,2,4,3
+Event audiovisual / livestream,3,2,2
+Event audiovisual / livestream,4,2,1
+Event audiovisual / livestream,5,1,1
+Event audiovisual / livestream,6,1,1
+Event audiovisual / livestream,7,3,1
+Event audiovisual / livestream,9,4,2
+Event audiovisual / livestream,10,7,4
+Event audiovisual / livestream,11,1,1
+Event audiovisual / livestream,12,4,3
+Event communication materials,3,1,1
+Graphic design / layout,1,48,43
+Graphic design / layout,2,60,56
+Graphic design / layout,3,75,70
+Graphic design / layout,4,61,53
+Graphic design / layout,5,64,59
+Graphic design / layout,6,52,48
+Graphic design / layout,7,41,37
+Graphic design / layout,8,50,48
+Graphic design / layout,9,45,41
+Graphic design / layout,10,67,57
+Graphic design / layout,11,44,42
+Graphic design / layout,12,57,51
+Illustration / infographics,1,7,7
+Illustration / infographics,2,6,5
+Illustration / infographics,3,9,9
+Illustration / infographics,4,10,9
+Illustration / infographics,5,9,9
+Illustration / infographics,6,12,9
+Illustration / infographics,7,14,12
+Illustration / infographics,8,10,9
+Illustration / infographics,9,7,6
+Illustration / infographics,10,10,7
+Illustration / infographics,11,8,8
+Illustration / infographics,12,9,6
+Interpretation services,1,19,17
+Interpretation services,2,15,15
+Interpretation services,3,13,12
+Interpretation services,4,20,17
+Interpretation services,5,19,17
+Interpretation services,6,22,19
+Interpretation services,7,28,25
+Interpretation services,8,19,17
+Interpretation services,9,18,17
+Interpretation services,10,34,30
+Interpretation services,11,9,9
+Interpretation services,12,19,16
+Labels / stickers / QR materials,1,18,12
+Labels / stickers / QR materials,2,24,15
+Labels / stickers / QR materials,3,16,9
+Labels / stickers / QR materials,4,13,12
+Labels / stickers / QR materials,5,34,26
+Labels / stickers / QR materials,6,17,14
+Labels / stickers / QR materials,7,19,16
+Labels / stickers / QR materials,8,20,16
+Labels / stickers / QR materials,9,17,17
+Labels / stickers / QR materials,10,18,18
+Labels / stickers / QR materials,11,21,17
+Labels / stickers / QR materials,12,20,18
+Low-code / no-code implementation,1,12,10
+Low-code / no-code implementation,2,20,11
+Low-code / no-code implementation,3,18,12
+Low-code / no-code implementation,4,13,7
+Low-code / no-code implementation,5,15,12
+Low-code / no-code implementation,6,19,14
+Low-code / no-code implementation,7,19,13
+Low-code / no-code implementation,8,12,10
+Low-code / no-code implementation,9,13,11
+Low-code / no-code implementation,10,14,13
+Low-code / no-code implementation,11,14,13
+Low-code / no-code implementation,12,10,8
+Microsites / campaign landing pages,1,1,1
+Microsites / campaign landing pages,3,1,1
+Microsites / campaign landing pages,4,1,1
+Microsites / campaign landing pages,6,1,1
+Microsites / campaign landing pages,7,2,2
+Microsites / campaign landing pages,8,2,2
+Microsites / campaign landing pages,9,3,3
+Microsites / campaign landing pages,11,1,1
+Newsletter / magazine production,1,4,2
+Newsletter / magazine production,2,4,3
+Newsletter / magazine production,3,6,5
+Newsletter / magazine production,4,3,2
+Newsletter / magazine production,5,4,2
+Newsletter / magazine production,6,2,2
+Newsletter / magazine production,7,4,3
+Newsletter / magazine production,8,3,3
+Newsletter / magazine production,9,3,2
+Newsletter / magazine production,10,5,3
+Newsletter / magazine production,11,4,2
+Newsletter / magazine production,12,5,3
+Office / presentation equipment supply,1,13,10
+Office / presentation equipment supply,2,9,8
+Office / presentation equipment supply,3,4,3
+Office / presentation equipment supply,4,9,8
+Office / presentation equipment supply,5,5,5
+Office / presentation equipment supply,6,9,8
+Office / presentation equipment supply,7,11,9
+Office / presentation equipment supply,8,9,9
+Office / presentation equipment supply,9,5,5
+Office / presentation equipment supply,10,8,7
+Office / presentation equipment supply,11,7,7
+Office / presentation equipment supply,12,10,9
+Online forms / lightweight portals,1,136,50
+Online forms / lightweight portals,2,151,52
+Online forms / lightweight portals,3,148,39
+Online forms / lightweight portals,4,161,55
+Online forms / lightweight portals,5,160,48
+Online forms / lightweight portals,6,169,59
+Online forms / lightweight portals,7,157,60
+Online forms / lightweight portals,8,158,76
+Online forms / lightweight portals,9,181,86
+Online forms / lightweight portals,10,156,70
+Online forms / lightweight portals,11,147,60
+Online forms / lightweight portals,12,158,54
+Online survey setup,1,1,0
+Online survey setup,2,6,6
+Online survey setup,4,5,5
+Online survey setup,5,2,2
+Online survey setup,6,5,5
+Online survey setup,7,9,8
+Online survey setup,8,3,3
+Online survey setup,9,2,2
+Online survey setup,10,1,1
+Online survey setup,11,7,7
+Online survey setup,12,7,4
+Photography,1,23,21
+Photography,2,18,14
+Photography,3,17,14
+Photography,4,14,12
+Photography,5,16,16
+Photography,6,17,17
+Photography,7,12,12
+Photography,8,14,14
+Photography,9,11,10
+Photography,10,20,20
+Photography,11,21,19
+Photography,12,12,12
+Presentation / template design,1,3,3
+Presentation / template design,2,4,3
+Presentation / template design,3,3,3
+Presentation / template design,4,10,9
+Presentation / template design,5,9,7
+Presentation / template design,6,4,3
+Presentation / template design,7,2,1
+Presentation / template design,8,6,5
+Presentation / template design,9,5,4
+Presentation / template design,10,9,5
+Presentation / template design,11,5,5
+Presentation / template design,12,5,4
+Promotional merchandise / branded items,1,18,18
+Promotional merchandise / branded items,2,14,13
+Promotional merchandise / branded items,3,10,10
+Promotional merchandise / branded items,4,13,13
+Promotional merchandise / branded items,5,14,12
+Promotional merchandise / branded items,6,19,18
+Promotional merchandise / branded items,7,12,11
+Promotional merchandise / branded items,8,17,16
+Promotional merchandise / branded items,9,21,20
+Promotional merchandise / branded items,10,14,11
+Promotional merchandise / branded items,11,11,10
+Promotional merchandise / branded items,12,11,11
+Proofreading / editing,1,10,9
+Proofreading / editing,2,13,7
+Proofreading / editing,3,8,4
+Proofreading / editing,4,17,12
+Proofreading / editing,5,11,9
+Proofreading / editing,6,9,7
+Proofreading / editing,7,11,8
+Proofreading / editing,8,12,7
+Proofreading / editing,9,10,9
+Proofreading / editing,10,4,4
+Proofreading / editing,11,17,10
+Proofreading / editing,12,10,8
+Signage / wayfinding / vinyl,1,266,238
+Signage / wayfinding / vinyl,2,276,243
+Signage / wayfinding / vinyl,3,278,245
+Signage / wayfinding / vinyl,4,294,251
+Signage / wayfinding / vinyl,5,267,228
+Signage / wayfinding / vinyl,6,300,269
+Signage / wayfinding / vinyl,7,258,228
+Signage / wayfinding / vinyl,8,218,193
+Signage / wayfinding / vinyl,9,260,225
+Signage / wayfinding / vinyl,10,289,248
+Signage / wayfinding / vinyl,11,231,198
+Signage / wayfinding / vinyl,12,260,223
+Simple API / software integration,1,22,19
+Simple API / software integration,2,18,12
+Simple API / software integration,3,26,15
+Simple API / software integration,4,30,17
+Simple API / software integration,5,37,22
+Simple API / software integration,6,32,26
+Simple API / software integration,7,35,18
+Simple API / software integration,8,28,22
+Simple API / software integration,9,26,20
+Simple API / software integration,10,31,27
+Simple API / software integration,11,18,14
+Simple API / software integration,12,27,19
+Small IT equipment supply,1,290,113
+Small IT equipment supply,2,338,119
+Small IT equipment supply,3,352,92
+Small IT equipment supply,4,434,119
+Small IT equipment supply,5,353,120
+Small IT equipment supply,6,409,114
+Small IT equipment supply,7,370,102
+Small IT equipment supply,8,421,222
+Small IT equipment supply,9,434,215
+Small IT equipment supply,10,512,254
+Small IT equipment supply,11,349,142
+Small IT equipment supply,12,345,133
+Social media content production,1,31,25
+Social media content production,2,30,26
+Social media content production,3,18,15
+Social media content production,4,36,28
+Social media content production,5,35,29
+Social media content production,6,22,20
+Social media content production,7,27,24
+Social media content production,8,21,19
+Social media content production,9,19,17
+Social media content production,10,24,18
+Social media content production,11,31,22
+Social media content production,12,25,17
+Subtitles / captions,1,3,3
+Subtitles / captions,2,2,2
+Subtitles / captions,3,1,1
+Subtitles / captions,4,4,3
+Subtitles / captions,5,1,1
+Subtitles / captions,7,2,1
+Subtitles / captions,9,3,2
+Subtitles / captions,10,3,2
+Subtitles / captions,11,1,1
+Subtitles / captions,12,2,2
+Survey data processing / coding,1,1,1
+Survey data processing / coding,2,1,1
+Survey data processing / coding,3,3,3
+Survey data processing / coding,5,2,2
+Survey data processing / coding,7,1,1
+Survey data processing / coding,9,1,1
+Survey data processing / coding,10,1,1
+Survey data processing / coding,11,1,1
+Transcription / minutes,1,1439,162
+Transcription / minutes,2,1412,168
+Transcription / minutes,3,1537,143
+Transcription / minutes,4,1865,193
+Transcription / minutes,5,1273,213
+Transcription / minutes,6,1394,209
+Transcription / minutes,7,1537,193
+Transcription / minutes,8,1377,165
+Transcription / minutes,9,1405,226
+Transcription / minutes,10,1385,225
+Transcription / minutes,11,1151,189
+Transcription / minutes,12,1041,163
+Translation / localization,1,30,26
+Translation / localization,2,31,29
+Translation / localization,3,38,33
+Translation / localization,4,42,36
+Translation / localization,5,43,34
+Translation / localization,6,39,35
+Translation / localization,7,41,35
+Translation / localization,8,30,27
+Translation / localization,9,43,36
+Translation / localization,10,50,44
+Translation / localization,11,39,30
+Translation / localization,12,31,21
+Video editing / post-production,1,1,1
+Video editing / post-production,3,3,3
+Video editing / post-production,4,2,2
+Video editing / post-production,5,6,5
+Video editing / post-production,6,2,2
+Video editing / post-production,7,5,5
+Video editing / post-production,8,2,2
+Video editing / post-production,9,5,5
+Video editing / post-production,10,3,3
+Video editing / post-production,11,3,3
+Video editing / post-production,12,5,5
+Video production,1,10,10
+Video production,2,10,10
+Video production,3,12,10
+Video production,4,8,8
+Video production,5,14,13
+Video production,6,8,7
+Video production,7,7,6
+Video production,8,12,11
+Video production,9,13,10
+Video production,10,12,11
+Video production,11,8,8
+Video production,12,9,9
+Voice-over / narration / audio editing,1,4,3
+Voice-over / narration / audio editing,2,3,3
+Voice-over / narration / audio editing,3,2,2
+Voice-over / narration / audio editing,4,5,5
+Voice-over / narration / audio editing,5,2,2
+Voice-over / narration / audio editing,6,4,4
+Voice-over / narration / audio editing,7,5,4
+Voice-over / narration / audio editing,8,4,3
+Voice-over / narration / audio editing,9,3,2
+Voice-over / narration / audio editing,10,10,6
+Voice-over / narration / audio editing,11,6,3
+Voice-over / narration / audio editing,12,3,1
+Web accessibility remediation,1,10,8
+Web accessibility remediation,2,17,9
+Web accessibility remediation,3,10,2
+Web accessibility remediation,4,5,3
+Web accessibility remediation,5,11,8
+Web accessibility remediation,6,8,7
+Web accessibility remediation,7,9,5
+Web accessibility remediation,8,9,6
+Web accessibility remediation,9,8,7
+Web accessibility remediation,10,12,11
+Web accessibility remediation,11,5,5
+Web accessibility remediation,12,8,6
+Web hosting / domain / SSL,1,68,57
+Web hosting / domain / SSL,2,89,67
+Web hosting / domain / SSL,3,83,65
+Web hosting / domain / SSL,4,93,70
+Web hosting / domain / SSL,5,99,72
+Web hosting / domain / SSL,6,105,75
+Web hosting / domain / SSL,7,101,78
+Web hosting / domain / SSL,8,82,58
+Web hosting / domain / SSL,9,66,49
+Web hosting / domain / SSL,10,78,65
+Web hosting / domain / SSL,11,71,51
+Web hosting / domain / SSL,12,95,65
+Website design / redesign,1,723,345
+Website design / redesign,2,696,379
+Website design / redesign,3,637,315
+Website design / redesign,4,803,416
+Website design / redesign,5,795,417
+Website design / redesign,6,665,325
+Website design / redesign,7,744,406
+Website design / redesign,8,648,306
+Website design / redesign,9,694,374
+Website design / redesign,10,826,440
+Website design / redesign,11,693,360
+Website design / redesign,12,675,353
+Website maintenance / content updates,1,18,17
+Website maintenance / content updates,2,24,21
+Website maintenance / content updates,3,12,12
+Website maintenance / content updates,4,19,17
+Website maintenance / content updates,5,11,11
+Website maintenance / content updates,6,25,23
+Website maintenance / content updates,7,18,17
+Website maintenance / content updates,8,10,10
+Website maintenance / content updates,9,13,13
+Website maintenance / content updates,10,16,16
+Website maintenance / content updates,11,22,22
+Website maintenance / content updates,12,32,23
+Workflow automation / RPA,1,56,26
+Workflow automation / RPA,2,45,25
+Workflow automation / RPA,3,52,16
+Workflow automation / RPA,4,58,29
+Workflow automation / RPA,5,43,18
+Workflow automation / RPA,6,26,12
+Workflow automation / RPA,7,64,27
+Workflow automation / RPA,8,32,21
+Workflow automation / RPA,9,49,23
+Workflow automation / RPA,10,81,30
+Workflow automation / RPA,11,33,21
+Workflow automation / RPA,12,48,17
