@@ -1,0 +1,166 @@
+name: SPM open-world wave 3 v1
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-spm-open-world-wave3-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-spm-open-world-wave3-v1
+  cancel-in-progress: true
+
+jobs:
+  wave3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+
+      - name: Free runner disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download validated inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p core known wave1 wave2 wave3 enriched
+          gh release download tender-normalized-global-core-v4 \
+            --pattern historical_tenders.parquet \
+            --pattern awards.parquet \
+            --pattern award_suppliers.parquet \
+            --pattern data_quality.json \
+            --dir core --clobber
+          gh release download tender-spm-tender-discovery-v1 \
+            --pattern matched_tenders.parquet \
+            --dir known --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          c=q.get('counts',q.get('counts_notice_first',{}))
+          assert q['status']=='PASS',q
+          assert c.get('historical_tenders')==2250547,c
+          assert c.get('awards')==4286784,c
+          assert c.get('award_suppliers')==3937663,c
+          print('OPEN_WORLD_WAVE3_INPUT_GATE_PASS',c)
+          PY
+
+      - name: Rebuild wave 1 exclusion keyset
+        run: |
+          python tools/patch_open_world_concept_prefilter.py
+          python tools/build_spm_open_world_concepts_v1.py \
+            --core core --known-matched known/matched_tenders.parquet --out wave1 --min-concept-volume 20
+
+      - name: Rebuild wave 2 exclusion keyset
+        run: |
+          python tools/build_spm_open_world_wave2_v1.py \
+            --core core --known-matched known/matched_tenders.parquet \
+            --wave1-matched wave1/matched_tenders.parquet --out wave2 --min-concept-volume 20
+
+      - name: Classify net-new multilingual wave 3
+        run: |
+          python -m py_compile tools/build_spm_open_world_wave3_v1.py
+          python tools/build_spm_open_world_wave3_v1.py \
+            --core core --known-matched known/matched_tenders.parquet \
+            --wave1-matched wave1/matched_tenders.parquet \
+            --wave2-matched wave2/matched_tenders.parquet \
+            --out wave3 --min-concept-volume 20
+
+      - name: Prepare targeted award enricher
+        run: |
+          python tools/patch_targeted_enrichment_for_open_world.py
+          python -m py_compile tools/build_spm_targeted_award_enrichment_open_world_v1.py
+
+      - name: Enrich wave 3 with awards competition and suppliers
+        run: |
+          python tools/build_spm_targeted_award_enrichment_open_world_v1.py \
+            --matched wave3/matched_tenders.parquet \
+            --matrix wave3/open_world_wave3_matrix.csv \
+            --awards core/awards.parquet \
+            --suppliers core/award_suppliers.parquet \
+            --out enriched
+
+      - name: Validate final outputs
+        run: |
+          python - <<'PY'
+          import json,os
+          w=json.load(open('wave3/data_quality.json'))
+          e=json.load(open('enriched/data_quality.json'))
+          assert w['status']=='PASS',w
+          assert w['residual_after_wave2']>2100000,w
+          assert w['retained_concepts']>=8,w
+          assert w['unique_wave3_tenders']>=300,w
+          assert e['status']=='PASS',e
+          assert e['counts']['spm_niches']>=8,e
+          assert e['counts']['spm_matched_tenders']>=300,e
+          for f in ['spm_enriched_matrix.csv','top20_enriched_opportunities.csv','top20_easiest_money_enriched.csv','top20_expected_profit_proxy.csv','top20_low_competition.csv','live_scoring_priors.json','QUANTITATIVE_READOUT.md']:
+            assert os.path.exists('enriched/'+f),f
+          print('OPEN_WORLD_WAVE3_ENRICHMENT_QA_PASS',w,e)
+          PY
+
+      - name: Publish derived release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-open-world-wave3-enrichment-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — SPM Open-World Wave 3 v1' \
+              --notes 'DERIVED multilingual and specialist wave 3 over Core v4 after original SPM plus waves 1/2 exclusions; targeted award/competition/supplier enrichment; no historical DCE.' \
+              --target tender-harvest-relay-20260812
+          fi
+          for f in wave3/*.csv wave3/*.json wave3/*.md enriched/*.csv enriched/*.json enriched/*.md; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+
+      - name: Persist readable outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_open_world_wave3_v1'
+          mkdir -p "$DEST"
+          cp wave3/WAVE3_READOUT.md "$DEST/"
+          cp wave3/data_quality.json "$DEST/wave3_data_quality.json"
+          cp wave3/open_world_wave3_matrix.csv "$DEST/"
+          cp wave3/representative_tenders_by_concept.csv "$DEST/"
+          cp enriched/QUANTITATIVE_READOUT.md "$DEST/"
+          cp enriched/data_quality.json "$DEST/enrichment_data_quality.json"
+          cp enriched/spm_enriched_matrix.csv "$DEST/"
+          cp enriched/top20_enriched_opportunities.csv "$DEST/"
+          cp enriched/top20_easiest_money_enriched.csv "$DEST/"
+          cp enriched/top20_expected_profit_proxy.csv "$DEST/"
+          cp enriched/top20_low_competition.csv "$DEST/"
+          cp enriched/live_scoring_priors.json "$DEST/open_world_wave3_live_scoring_priors.json"
+          git checkout -- tools/build_spm_open_world_concepts_v1.py || true
+          rm -f tools/build_spm_targeted_award_enrichment_open_world_v1.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist SPM open-world wave 3 v1 outputs'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
+
+      - name: Final disk report
+        run: df -h /
