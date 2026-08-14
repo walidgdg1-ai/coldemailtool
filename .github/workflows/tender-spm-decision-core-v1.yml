@@ -1,0 +1,103 @@
+name: Build SPM decision core v1
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-spm-decision-core-v1.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-spm-decision-core-v1
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+      - name: Free disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Apply audited runtime patches
+        run: |
+          python tools/patch_spm_deep_intelligence_v1.py
+          python tools/patch_spm_decision_core_v1.py
+          python -m py_compile tools/spm_niche_rules.py tools/build_spm_deep_intelligence_v1.py
+      - name: Download validated inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p core usa intel
+          for a in historical_tenders.parquet awards.parquet award_suppliers.parquet data_quality.json; do
+            gh release download tender-normalized-global-core-v4 --pattern "$a" --dir core --clobber
+          done
+          gh release download tender-normalized-usa-awards-v1 --pattern market_rank.csv --pattern repeat_buyers.csv --dir usa --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          assert q['status']=='PASS',q
+          c=q.get('counts',q.get('counts_notice_first',{}))
+          assert c.get('historical_tenders')==2250547,c
+          assert c.get('awards')==4286784,c
+          assert c.get('award_suppliers')==3937663,c
+          print('DECISION_CORE_INPUT_GATE_PASS',c)
+          PY
+      - name: Full-corpus decision analysis
+        run: |
+          python tools/build_spm_deep_intelligence_v1.py --core core --usa-rank usa/market_rank.csv --usa-repeat usa/repeat_buyers.csv --out intel
+      - name: Validate decision outputs
+        run: |
+          python - <<'PY'
+          import json,csv,os
+          q=json.load(open('intel/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_core_tenders']==2250547,q
+          for f in ['spm_opportunity_matrix.csv','top50_spm_opportunities.csv','top20_easiest_money.csv','top20_expected_profit.csv','top20_ai_leverage.csv','top20_middleman.csv','hidden_gem_candidates.csv','top_recurring_buyers_by_niche.csv','top_winners_by_niche.csv','representative_tenders_top_niches.csv','entry_requirement_signal_mentions.csv','seasonality_by_niche.csv','buyer_niche_monitor_rank.csv','live_scoring_spec.json','QUANTITATIVE_READOUT.md']:
+            assert os.path.exists('intel/'+f),f
+          with open('intel/spm_opportunity_matrix.csv',newline='',encoding='utf-8') as f:
+            n=sum(1 for _ in csv.reader(f))-1
+          assert n>=10,n
+          print('DECISION_CORE_QA_PASS',n,q['spm_regex_matched_tenders'],q['spm_match_rate_pct'])
+          PY
+      - name: Publish decision-core release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-decision-core-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Intelligence — SPM Decision Core v1' --notes 'DERIVED full-corpus decision layer over Global Core v4. Detailed price quantiles and hidden-gem supplier fragmentation are modular enrichments and are not claimed complete in this release.' --target tender-harvest-relay-20260812
+          fi
+          find intel -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+      - name: Persist readable outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_decision_core_v1'
+          mkdir -p "$DEST"
+          for f in QUANTITATIVE_READOUT.md data_quality.json live_scoring_spec.json schema_profile.json spm_opportunity_matrix.csv top50_spm_opportunities.csv top20_easiest_money.csv top20_expected_profit.csv top20_ai_leverage.csv top20_middleman.csv hidden_gem_candidates.csv country_spm_fit.csv entry_requirement_signal_mentions.csv seasonality_by_niche.csv buyer_niche_monitor_rank.csv top_winners_by_niche.csv representative_tenders_top_niches.csv unmatched_high_lean_title_terms.csv; do
+            [ -f "intel/$f" ] && cp "intel/$f" "$DEST/$f"
+          done
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist SPM decision-core v1 outputs'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
