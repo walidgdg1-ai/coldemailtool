@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "generated_at": "2026-08-14T19:34:43.696577+00:00",
+  "source_core_tenders": 2250547,
+  "known_spm_rows": 60734,
+  "residual_tenders": 2189813,
+  "concept_rules": 24,
+  "retained_concepts": 23,
+  "concept_match_rows": 18149,
+  "unique_residual_tenders_matched": 17651,
+  "multi_label_rows": 498,
+  "min_concept_volume": 20,
+  "contract": "DATA_DERIVED_OPEN_WORLD_CONCEPTS_V1: rules consolidated from v2 recurring phrases; title-only matching; known SPM anti-joined; no DCE"
+}
