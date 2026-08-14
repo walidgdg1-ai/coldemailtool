@@ -1,0 +1,119 @@
+name: SPM open-world discovery v1
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - '.github/workflows/tender-spm-open-world-discovery-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-spm-open-world-discovery-v1
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+
+      - name: Free runner disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download Core v4 and known SPM matches
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p core prior out
+          gh release download tender-normalized-global-core-v4 --pattern historical_tenders.parquet --pattern data_quality.json --dir core --clobber
+          gh release download tender-spm-tender-discovery-v1 --pattern matched_tenders.parquet --dir prior --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          c=q.get('counts',q.get('counts_notice_first',{}))
+          assert q['status']=='PASS',q
+          assert c.get('historical_tenders')==2250547,c
+          print('OPEN_WORLD_INPUT_GATE_PASS',c)
+          PY
+
+      - name: Analyze entire unmatched corpus
+        run: |
+          python tools/build_spm_open_world_discovery_v1.py \
+            --core core \
+            --matched prior/matched_tenders.parquet \
+            --out out
+
+      - name: Validate discovery outputs
+        run: |
+          python - <<'PY'
+          import json,os,csv
+          q=json.load(open('out/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_core_tenders']==2250547,q
+          assert q['known_spm_matched']>50000,q
+          assert q['open_world_unmatched_tenders']>2000000,q
+          for f in ['top_open_world_candidates.csv','unmatched_category_cohorts.csv','unmatched_title_patterns.csv','unmatched_title_terms.csv','representative_unmatched_tenders.csv','OPEN_WORLD_READOUT.md']:
+            assert os.path.exists('out/'+f),f
+          with open('out/top_open_world_candidates.csv',newline='',encoding='utf-8') as f:
+            n=sum(1 for _ in csv.reader(f))-1
+          assert n>=100,n
+          print('OPEN_WORLD_QA_PASS',q,'candidates',n)
+          PY
+
+      - name: Publish derived release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-open-world-discovery-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Intelligence — SPM Open-World Discovery v1' --notes 'DERIVED discovery over the entire Core v4 residual after removing known SPM matches. No DCE dependency and no fixed ontology requirement for residual cluster discovery.' --target tender-harvest-relay-20260812
+          fi
+          for f in out/*.csv out/*.json out/*.md; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+
+      - name: Persist readable outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_open_world_discovery_v1'
+          mkdir -p "$DEST"
+          cp out/OPEN_WORLD_READOUT.md "$DEST/"
+          cp out/data_quality.json "$DEST/"
+          cp out/top_open_world_candidates.csv "$DEST/"
+          cp out/unmatched_category_cohorts.csv "$DEST/"
+          cp out/unmatched_title_patterns.csv "$DEST/"
+          cp out/unmatched_title_terms.csv "$DEST/"
+          cp out/representative_unmatched_tenders.csv "$DEST/"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist SPM open-world discovery v1 outputs'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
+
+      - name: Final disk report
+        run: df -h /
