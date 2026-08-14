@@ -24,6 +24,19 @@ jobs:
         with:
           ref: tender-harvest-relay-20260812
           fetch-depth: 0
+
+      - name: Free hosted-runner disk for DuckDB spill
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'BEFORE CLEANUP'
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          echo 'AFTER CLEANUP'
+          df -h /
+
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - name: Install analytics runtime
@@ -53,6 +66,7 @@ jobs:
           assert counts.get('award_suppliers')==3937663,(counts,q)
           print('CORE_V4_ANALYSIS_GATE_PASS',counts)
           PY
+          df -h /
 
       - name: Full-corpus SPM analysis
         run: |
@@ -65,7 +79,7 @@ jobs:
       - name: Validate analytical outputs
         run: |
           python - <<'PY'
-          import json,csv,glob,os
+          import json,csv,os
           q=json.load(open('intel/data_quality.json'))
           assert q['status']=='PASS',q
           assert q['source_core_tenders']==2250547,q
