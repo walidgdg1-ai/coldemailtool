@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "generated_at": "2026-08-14T19:19:08.259813+00:00",
+  "source_core_tenders": 2250547,
+  "known_spm_matched": 60734,
+  "open_world_unmatched_tenders": 2189813,
+  "source_count": 9,
+  "global_category_cohorts": 597,
+  "multiword_phrases": 118031,
+  "actionable_candidates": 3221,
+  "contract": "OPEN_WORLD_DISCOVERY_V2_GLOBAL_MULTIWORD; no DCE; residual corpus only"
+}
