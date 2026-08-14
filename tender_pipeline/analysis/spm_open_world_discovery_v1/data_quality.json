@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "generated_at": "2026-08-14T19:15:57.524981+00:00",
+  "source_core_tenders": 2250547,
+  "known_spm_matched": 60734,
+  "open_world_unmatched_tenders": 2189813,
+  "open_world_share_pct": 97.30136717873476,
+  "source_count": 9,
+  "category_cohorts": 1201,
+  "title_patterns": 12485,
+  "title_terms": 60451,
+  "contract": "OPEN_WORLD_DISCOVERY_V1: no DCE, no fixed SPM ontology used for residual discovery; known SPM matches removed by exact source+tender key"
+}
