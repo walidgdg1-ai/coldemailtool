@@ -7,17 +7,15 @@ s=p.read_text(encoding='utf-8')
 start=s.find("    # Native-currency value bands. We aggregate dimensionless within-currency shares, never monetary sums across currencies.\n")
 if start<0:
     raise SystemExit('VALUE_FIT_START_NOT_FOUND')
-# After the general runtime patch, detailed pricing starts at price_pairs.
 end=s.find('    price_pairs=con.execute(',start)
 if end<0:
-    # Fallback for the unpatched source form.
     end=s.find('    con.execute(f"""COPY (',start)
 if end<0:
     raise SystemExit('VALUE_FIT_END_NOT_FOUND')
 
-replacement=r'''    # Native-currency value bands. Full-corpus counts are accumulated by
-    # Warehouse_Source × Niche to bound join state; this is mathematically
-    # equivalent to the prior weighted native-currency share calculation.
+replacement=r'''    # Native-currency value bands. Full-corpus counts are accumulated one
+    # Warehouse_Source at a time, with Niche grouped inside that bounded join.
+    # This is mathematically equivalent to the prior weighted native-currency shares.
     con.execute("""
       CREATE TEMP TABLE niche_value_fit_parts(
         Niche VARCHAR,
@@ -28,8 +26,8 @@ replacement=r'''    # Native-currency value bands. Full-corpus counts are accumu
         C_5k_20k BIGINT
       )
     """)
-    value_pairs=con.execute(f"SELECT DISTINCT Warehouse_Source,Niche FROM read_parquet({q(matched.as_posix())}) ORDER BY 1,2").fetchall()
-    for src,niche in value_pairs:
+    value_sources=[r[0] for r in con.execute(f"SELECT DISTINCT Warehouse_Source FROM read_parquet({q(matched.as_posix())}) ORDER BY 1").fetchall()]
+    for src in value_sources:
         con.execute(f"""
           INSERT INTO niche_value_fit_parts
           WITH x AS (
@@ -39,7 +37,7 @@ replacement=r'''    # Native-currency value bands. Full-corpus counts are accumu
             FROM (
               SELECT Warehouse_Source,Historical_Tender_ID,Niche,Currency
               FROM read_parquet({q(matched.as_posix())})
-              WHERE Warehouse_Source={q(src)} AND Niche={q(niche)}
+              WHERE Warehouse_Source={q(src)}
             ) n
             JOIN (
               SELECT Warehouse_Source,Historical_Tender_ID,Award_Value,Award_Currency
