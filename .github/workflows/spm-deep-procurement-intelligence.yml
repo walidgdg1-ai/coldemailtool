@@ -1,0 +1,99 @@
+name: SPM Deep Procurement Intelligence
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - tender-harvest-relay-20260812
+    paths:
+      - .github/workflows/spm-deep-procurement-intelligence.yml
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout tender branch
+        uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install analytical runtime
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'duckdb==1.4.1'
+
+      - name: Download validated Global Core v4
+        run: |
+          set -euo pipefail
+          mkdir -p core derived
+          gh release download tender-normalized-global-core-v4 \
+            --pattern 'historical_tenders.parquet' \
+            --pattern 'awards.parquet' \
+            --pattern 'award_suppliers.parquet' \
+            --pattern 'data_quality.json' \
+            --pattern 'source_priority.json' \
+            --pattern 'evidence_lanes.json' \
+            --dir core
+          ls -lh core
+
+      - name: Run full 2.25M-notice SPM scan
+        run: |
+          set -euo pipefail
+          python tools/spm_deep_procurement_intelligence.py \
+            --core core \
+            --out derived | tee derived/action_readback.log
+
+      - name: Validate derived QA
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib
+          q=json.loads(pathlib.Path('derived/data_quality.json').read_text())
+          print(json.dumps(q, indent=2))
+          assert q['status']=='PASS', q
+          assert q['checks']['core_tender_count_matches']
+          assert q['checks']['classified_tender_ids_unique']
+          PY
+
+      - name: Compress heavy tender-level derived output
+        run: |
+          set -euo pipefail
+          if [ -f derived/classified_tenders.csv ]; then gzip -9 derived/classified_tenders.csv; fi
+          du -sh derived
+          ls -lh derived | sort -k5 -h
+
+      - name: Upload durable workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spm-deep-procurement-intelligence-v1
+          path: derived/
+          retention-days: 90
+          compression-level: 6
+
+      - name: Publish DERIVED release
+        run: |
+          set -euo pipefail
+          TAG='tender-derived-spm-deep-intelligence-v1'
+          gh release delete "$TAG" --yes >/dev/null 2>&1 || true
+          git push origin ":refs/tags/$TAG" >/dev/null 2>&1 || true
+          gh release create "$TAG" derived/* \
+            --target tender-harvest-relay-20260812 \
+            --title 'SPM Deep Procurement Intelligence v1 — DERIVED' \
+            --notes 'DERIVED analytical layer over tender-normalized-global-core-v4. Contains full SPM opportunity matrix, micro-niche taxonomy, source/currency-separated price quantiles, competition evidence, supplier fragmentation, recurring buyers, representative tenders, revenue scenarios, business models, live scoring spec, methodology/code, notebook companion and QA. Canonical source warehouses are untouched.'
+
+      - name: Final release readback
+        run: |
+          set -euo pipefail
+          gh release view tender-derived-spm-deep-intelligence-v1 --json tagName,name,assets,publishedAt
