@@ -65,6 +65,11 @@ jobs:
           print('OPEN_WORLD_CONCEPT_INPUT_GATE_PASS',c)
           PY
 
+      - name: Optimize exhaustive concept classifier
+        run: |
+          python tools/patch_open_world_concept_prefilter.py
+          python -m py_compile tools/build_spm_open_world_concepts_v1.py
+
       - name: Consolidate residual signals into business concepts
         run: |
           python tools/build_spm_open_world_concepts_v1.py \
@@ -90,7 +95,7 @@ jobs:
       - name: Validate final outputs
         run: |
           python - <<'PY'
-          import json,csv,os
+          import json,os
           c=json.load(open('concepts/data_quality.json'))
           e=json.load(open('enriched/data_quality.json'))
           assert c['status']=='PASS',c
