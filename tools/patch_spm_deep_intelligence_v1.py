@@ -6,7 +6,6 @@ s=p.read_text(encoding='utf-8')
 
 old="""    text_expr=\"lower(concat_ws(' ',\"+','.join(f\"coalesce(cast({x} as varchar),'')\" for x in text_parts)+'))'\n    # Remove the trailing quote introduced above in a controlled way.\n    text_expr=text_expr[:-1]\n"""
 new="""    text_expr=\"lower(concat_ws(' ',\"+','.join(f\"coalesce(cast({x} as varchar),'')\" for x in text_parts)+'))'\n"""
-# The Python string above already produces the two required closing parentheses; no slicing.
 if old not in s:
     raise SystemExit('TEXT_EXPR_PATCH_TARGET_NOT_FOUND')
 s=s.replace(old,new,1)
@@ -16,6 +15,9 @@ new2="""        ), score1 AS (\n          SELECT *,\n            100*(0.12*Volum
 if old2 not in s:
     raise SystemExit('SCORE_ALIAS_PATCH_TARGET_NOT_FOUND')
 s=s.replace(old2,new2,1)
+
+# DuckDB treats MACRO as syntax in unquoted aliases. Use a descriptive field name everywhere.
+s=s.replace('Macro','Macro_Category')
 
 p.write_text(s,encoding='utf-8')
 print('SPM_DEEP_V1_RUNTIME_PATCH_PASS')
