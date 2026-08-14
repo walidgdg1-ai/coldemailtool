@@ -148,6 +148,8 @@ jobs:
           git add "$DEST"
           if ! git diff --cached --quiet; then
             git commit -m 'Persist SPM open-world concept enrichment v1 outputs'
+            git restore tools/build_spm_open_world_concepts_v1.py || true
+            rm -f tools/build_spm_targeted_award_enrichment_open_world_v1.py
             git pull --rebase origin tender-harvest-relay-20260812
             git push origin HEAD:tender-harvest-relay-20260812
           fi
