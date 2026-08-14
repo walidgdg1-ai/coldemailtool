@@ -77,8 +77,9 @@ jobs:
             --core core --known-matched known/matched_tenders.parquet \
             --wave1-matched wave1/matched_tenders.parquet --out wave2 --min-concept-volume 20
 
-      - name: Classify net-new multilingual wave 3
+      - name: Expand and classify net-new multilingual wave 3
         run: |
+          python tools/patch_spm_open_world_wave3_expand.py
           python -m py_compile tools/build_spm_open_world_wave3_v1.py
           python tools/build_spm_open_world_wave3_v1.py \
             --core core --known-matched known/matched_tenders.parquet \
@@ -151,7 +152,10 @@ jobs:
           cp enriched/top20_expected_profit_proxy.csv "$DEST/"
           cp enriched/top20_low_competition.csv "$DEST/"
           cp enriched/live_scoring_priors.json "$DEST/open_world_wave3_live_scoring_priors.json"
+          # Runtime patchers intentionally modify tracked source files. Restore them before
+          # rebase/push so only durable analysis outputs are committed.
           git checkout -- tools/build_spm_open_world_concepts_v1.py || true
+          git checkout -- tools/build_spm_open_world_wave3_v1.py || true
           rm -f tools/build_spm_targeted_award_enrichment_open_world_v1.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
