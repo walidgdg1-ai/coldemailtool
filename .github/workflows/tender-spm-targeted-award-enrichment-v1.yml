@@ -1,0 +1,152 @@
+name: SPM targeted award enrichment v1
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - 'tools/build_spm_targeted_award_enrichment_v1.py'
+      - '.github/workflows/tender-spm-targeted-award-enrichment-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-spm-targeted-award-enrichment-v1
+  cancel-in-progress: true
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+
+      - name: Free runner disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download validated historical inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p input/core input/discovery out
+          gh release download tender-spm-tender-discovery-v1 \
+            --pattern matched_tenders.parquet \
+            --dir input/discovery --clobber
+          for asset in awards.parquet award_suppliers.parquet data_quality.json; do
+            gh release download tender-normalized-global-core-v4 \
+              --pattern "$asset" --dir input/core --clobber
+          done
+          python - <<'PY'
+          import json
+          q=json.load(open('input/core/data_quality.json',encoding='utf-8'))
+          assert q.get('status') == 'PASS', q
+          c=q.get('counts',q.get('counts_notice_first',{}))
+          assert c.get('historical_tenders') == 2250547, c
+          assert c.get('awards') == 4286784, c
+          assert c.get('award_suppliers') == 3937663, c
+          print('TARGETED_ENRICHMENT_INPUT_GATE_PASS',c)
+          PY
+          ls -lh input/discovery input/core
+
+      - name: Enrich SPM tender discovery with targeted award facts
+        run: |
+          python tools/build_spm_targeted_award_enrichment_v1.py \
+            --matched input/discovery/matched_tenders.parquet \
+            --matrix tender_pipeline/analysis/spm_tender_discovery_v1/spm_discovery_matrix.csv \
+            --awards input/core/awards.parquet \
+            --suppliers input/core/award_suppliers.parquet \
+            --out out
+
+      - name: Validate outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import csv,json,os
+          q=json.load(open('out/data_quality.json',encoding='utf-8'))
+          assert q['status']=='PASS',q
+          assert q['counts']['spm_matched_tenders'] >= 60000,q
+          assert q['counts']['spm_niches'] >= 40,q
+          required=[
+            'spm_enriched_matrix.csv','competition_by_niche.csv',
+            'award_value_by_niche_currency.csv','supplier_fragmentation_by_niche.csv',
+            'top_winners_by_niche.csv','top20_enriched_opportunities.csv',
+            'top20_easiest_money_enriched.csv','top20_expected_profit_proxy.csv',
+            'top20_ai_leverage_enriched.csv','top20_middleman_enriched.csv',
+            'top20_low_competition.csv','live_scoring_priors.json',
+            'QUANTITATIVE_READOUT.md','schema_profile.json','data_quality.json'
+          ]
+          for f in required:
+            assert os.path.exists('out/'+f),f
+          with open('out/spm_enriched_matrix.csv',newline='',encoding='utf-8') as f:
+            rows=list(csv.DictReader(f))
+          assert len(rows) >= 40,len(rows)
+          print('TARGETED_ENRICHMENT_QA_PASS',len(rows),q['counts'])
+          PY
+
+      - name: Publish derived release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-targeted-award-enrichment-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — SPM Targeted Award Enrichment v1' \
+              --notes 'DERIVED enrichment over the successful full-corpus SPM tender discovery. Awards and suppliers are semi-joined only for matched SPM tenders. No historical DCE retrieval. Raw monetary values are never aggregated across currencies.' \
+              --target tender-harvest-relay-20260812
+          fi
+          for f in \
+            spm_enriched_matrix.csv competition_by_niche.csv award_value_by_niche_currency.csv \
+            supplier_fragmentation_by_niche.csv top_winners_by_niche.csv \
+            top20_enriched_opportunities.csv top20_easiest_money_enriched.csv \
+            top20_expected_profit_proxy.csv top20_ai_leverage_enriched.csv \
+            top20_middleman_enriched.csv top20_low_competition.csv \
+            live_scoring_priors.json QUANTITATIVE_READOUT.md schema_profile.json data_quality.json; do
+              gh release upload "$TAG" "out/$f" --clobber
+          done
+
+      - name: Persist readable decision outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_targeted_award_enrichment_v1'
+          mkdir -p "$DEST"
+          for f in \
+            spm_enriched_matrix.csv competition_by_niche.csv award_value_by_niche_currency.csv \
+            supplier_fragmentation_by_niche.csv top_winners_by_niche.csv \
+            top20_enriched_opportunities.csv top20_easiest_money_enriched.csv \
+            top20_expected_profit_proxy.csv top20_ai_leverage_enriched.csv \
+            top20_middleman_enriched.csv top20_low_competition.csv \
+            live_scoring_priors.json QUANTITATIVE_READOUT.md schema_profile.json data_quality.json; do
+              cp "out/$f" "$DEST/$f"
+          done
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist targeted SPM award enrichment v1'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
+
+      - name: Final disk report
+        if: always()
+        run: df -h /
