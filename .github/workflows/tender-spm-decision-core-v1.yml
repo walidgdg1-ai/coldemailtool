@@ -37,6 +37,7 @@ jobs:
       - name: Apply audited runtime patches
         run: |
           python tools/patch_spm_deep_intelligence_v1.py
+          python tools/patch_spm_value_fit_sharded_v1.py
           python tools/patch_spm_decision_core_v1.py
           python -m py_compile tools/spm_niche_rules.py tools/build_spm_deep_intelligence_v1.py
       - name: Download validated inputs
