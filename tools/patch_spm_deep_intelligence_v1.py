@@ -17,6 +17,8 @@ if old2 not in s:
 s=s.replace(old2,new2,1)
 
 s=s.replace('Macro','Macro_Category')
+s=s.replace("SET threads=2", "SET threads=1")
+s=s.replace("SET max_temp_directory_size='20GB'", "SET max_temp_directory_size='30GB'")
 s=s.replace('quantile_cont(Award_Value,0.10)', 'approx_quantile(Award_Value,0.10)')
 s=s.replace('quantile_cont(Award_Value,0.25)', 'approx_quantile(Award_Value,0.25)')
 s=s.replace('median(Award_Value) Median_Award_Value', 'approx_quantile(Award_Value,0.50) Median_Award_Value')
