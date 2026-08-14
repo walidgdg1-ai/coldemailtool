@@ -1,0 +1,44 @@
+name: SPM market v3 decision readback
+on:
+  workflow_dispatch:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/spm-market-v3-readback.yml']
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download validated MI v3
+        run: |
+          mkdir x
+          gh release download tender-global-market-intelligence-v3 --pattern '*.csv' --pattern 'data_quality.json' --dir x
+          cat x/data_quality.json
+      - name: Print empirical rankings relevant to SPM
+        run: |
+          python - <<'PY'
+          import csv,glob,json,re
+          def read(p):
+            with open(p,encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+          rank=read('x/notice_market_opportunity_rank.csv')
+          print('RANK_HEADERS',list(rank[0]) if rank else [])
+          print('TOP_MARKET_ROWS')
+          for r in rank[:40]: print(json.dumps(r,ensure_ascii=False))
+          pat=re.compile(r'web|design|graphic|print|translation|transcri|video|film|media|data|digit|software|content|communication|marketing|survey|phot|training|publishing|document|animation|hosting|portal|automation|advertis|mail|sign|catalog|layout|language|research',re.I)
+          print('SPM_MARKET_ROWS')
+          got=0
+          for r in rank:
+            if pat.search(' '.join(str(v) for v in r.values())):
+              print(json.dumps(r,ensure_ascii=False));got+=1
+              if got>=120: break
+          for fn in ['notice_cohort_facts.csv','notice_supplier_fragmentation.csv','notice_repeat_buyers.csv']:
+            rr=read('x/'+fn);print('FILE',fn,'HEADERS',list(rr[0]) if rr else [])
+            g=0
+            for r in rr:
+              if pat.search(' '.join(str(v) for v in r.values())):
+                print(json.dumps(r,ensure_ascii=False));g+=1
+                if g>=60:break
+          PY
