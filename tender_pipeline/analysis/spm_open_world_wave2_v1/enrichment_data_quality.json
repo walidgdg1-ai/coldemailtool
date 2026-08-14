@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "generated_at": "2026-08-14T20:14:17.131879+00:00",
+  "counts": {
+    "spm_matched_tenders": 7512,
+    "spm_niches": 31,
+    "linked_awards": 5624,
+    "award_supplier_rows": 5503,
+    "enriched_niches": 31
+  },
+  "source_contract": "Global Core v4 awards + award_suppliers joined only to open-world concept matches",
+  "currency_safety": "PASS: no raw cross-currency monetary aggregation in scoring",
+  "dce_dependency": "NONE_FOR_HISTORICAL_RANKING"
+}

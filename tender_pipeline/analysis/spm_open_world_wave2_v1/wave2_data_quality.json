@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "generated_at": "2026-08-14T20:14:15.662148+00:00",
+  "source_core_tenders": 2250547,
+  "known_spm_rows": 60734,
+  "wave1_match_rows": 18149,
+  "excluded_unique_before_wave2": 78385,
+  "residual_after_wave1": 2172162,
+  "concept_rules": 32,
+  "retained_concepts": 31,
+  "concept_match_rows": 7512,
+  "unique_wave2_tenders": 7477,
+  "multi_label_rows": 35,
+  "min_concept_volume": 20,
+  "contract": "DATA_DERIVED_OPEN_WORLD_WAVE2_V1: seeded from v2 recurring phrases; original SPM + wave1 anti-joined; title-only; no DCE"
+}
