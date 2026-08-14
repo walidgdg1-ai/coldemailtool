@@ -1,0 +1,134 @@
+name: SPM award intelligence v1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths:
+      - 'tools/build_spm_award_intelligence_v1.py'
+      - '.github/workflows/tender-spm-award-intelligence-v1.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  award-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+
+      - name: Free runner disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /opt/microsoft /usr/local/share/powershell || true
+          sudo apt-get clean || true
+          df -h /
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+
+      - name: Download Global Core v4 award inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p core out
+          gh release download tender-normalized-global-core-v4 \
+            --pattern historical_tenders.parquet \
+            --pattern awards.parquet \
+            --pattern award_suppliers.parquet \
+            --pattern data_quality.json \
+            --dir core --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          c=q.get('counts_notice_first') or q.get('counts') or {}
+          assert q['status']=='PASS',q
+          assert c.get('historical_tenders')==2250547,c
+          assert c.get('awards')==4286784,c
+          assert c.get('award_suppliers')==3937663,c
+          print('AWARD_INTELLIGENCE_INPUT_GATE_PASS',c)
+          PY
+
+      - name: Build buyer and supplier behavior intelligence
+        run: |
+          python tools/build_spm_award_intelligence_v1.py \
+            --core core \
+            --out out \
+            --threads 4 \
+            --memory 5GB
+
+      - name: Validate outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          q=json.load(open('out/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_counts']['awards']==4286784,q
+          required=[
+            'buyer_category_award_intelligence.csv',
+            'low_competition_hotspots.csv',
+            'supplier_churn.csv',
+            'small_repeat_awards.csv',
+            'supplier_lockin_risks.csv',
+            'buyer_watchlist_top500.csv',
+            'category_award_priors.csv',
+            'AWARD_INTELLIGENCE_READOUT.md',
+            'data_quality.json',
+            'run_manifest.json',
+          ]
+          for f in required:
+            assert os.path.exists('out/'+f),f
+          assert q['outputs']['buyer_category_award_intelligence.csv']>0,q
+          assert q['outputs']['buyer_watchlist_top500.csv']>0,q
+          print('SPM_AWARD_INTELLIGENCE_QA_PASS',q)
+          PY
+
+      - name: Publish durable derived release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-award-intelligence-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title 'Public Tender Intelligence — SPM Award Intelligence v1' \
+              --notes 'DERIVED award-behavior intelligence over Global Core v4 notice-first awards: repeat buyer demand, observed competition, supplier fragmentation, switching, modest-value recurrence, watchlists. USA award-first lane intentionally excluded and remains separate.' \
+              --target tender-harvest-relay-20260812
+          fi
+          for f in out/*; do
+            gh release upload "$TAG" "$f" --clobber
+          done
+
+      - name: Persist compact readable outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_award_intelligence_v1'
+          mkdir -p "$DEST"
+          cp out/AWARD_INTELLIGENCE_READOUT.md "$DEST/"
+          cp out/data_quality.json "$DEST/"
+          cp out/buyer_watchlist_top500.csv "$DEST/"
+          cp out/category_award_priors.csv "$DEST/"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist SPM award intelligence v1 outputs'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
+
+      - name: Final disk report
+        run: df -h /
