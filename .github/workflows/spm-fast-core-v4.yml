@@ -1,0 +1,46 @@
+name: SPM fast exhaustive Core v4 evidence
+on:
+  workflow_dispatch:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/spm-fast-core-v4.yml']
+permissions:
+  contents: write
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download Core v4
+        run: |
+          mkdir -p core out
+          for a in historical_tenders.parquet awards.parquet award_suppliers.parquet data_quality.json; do gh release download tender-normalized-global-core-v4 --pattern "$a" --dir core --clobber; done
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'));assert q['status']=='PASS';c=q.get('counts',q.get('counts_notice_first',{}));assert c['historical_tenders']==2250547 and c['awards']==4286784 and c['award_suppliers']==3937663,c
+          print('CORE_GATE_PASS',c)
+          PY
+      - name: Run exhaustive fast evidence layer
+        run: python tools/spm_fast_core_v4.py --core core --out out
+      - name: Readback
+        run: |
+          cat out/qa.json
+          echo '===== MATRIX ====='; cat out/fast_matrix.csv
+          echo '===== PRICES ====='; cat out/price_quantiles.csv
+          echo '===== COMPETITION ====='; cat out/competition.csv
+          echo '===== BUYERS ====='; head -n 101 out/repeat_buyers.csv
+          echo '===== REPRESENTATIVE ====='; cat out/representative.csv
+          echo '===== ENTRY ====='; cat out/entry_signals.csv
+      - name: Persist DERIVED fast evidence
+        run: |
+          DEST='tender_pipeline/analysis/spm_fast_core_v4';mkdir -p "$DEST";cp out/*.csv out/*.json "$DEST/"
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com';git add "$DEST";git commit -m 'Persist fast exhaustive SPM Core v4 evidence' || true;git pull --rebase origin tender-harvest-relay-20260812;git push origin HEAD:tender-harvest-relay-20260812
