@@ -1,0 +1,35 @@
+name: SPM market v3 decision readback v2
+on:
+  workflow_dispatch:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/spm-market-v3-readback-v2.yml']
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: walidgdg1-ai/coldemailtool
+    steps:
+      - name: Download validated MI v3
+        run: |
+          mkdir x
+          gh release download tender-global-market-intelligence-v3 --pattern '*.csv' --pattern 'data_quality.json' --dir x
+          cat x/data_quality.json
+      - name: Print SPM empirical rows
+        run: |
+          python - <<'PY'
+          import csv,json,re
+          def read(p):
+            with open(p,encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+          pat=re.compile(r'web|design|graphic|print|translation|transcri|video|film|media|data|digit|software|content|communication|marketing|survey|phot|training|publishing|document|animation|hosting|portal|automation|advertis|mail|sign|catalog|layout|language|research|accessib|caption|subtitle|newsletter',re.I)
+          for fn,lim in [('notice_market_opportunity_rank.csv',120),('notice_cohort_facts.csv',100),('notice_supplier_fragmentation.csv',100),('notice_repeat_buyers.csv',100)]:
+            rr=read('x/'+fn);print('===== FILE',fn,'HEADERS',list(rr[0]) if rr else [],'=====')
+            got=0
+            for r in rr:
+              if pat.search(' '.join(str(v) for v in r.values())):
+                print(json.dumps(r,ensure_ascii=False));got+=1
+                if got>=lim:break
+          PY
