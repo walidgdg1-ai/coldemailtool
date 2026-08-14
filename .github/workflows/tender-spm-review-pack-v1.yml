@@ -1,0 +1,23 @@
+name: Build SPM discovery review pack v1
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-spm-review-pack-v1.yml']
+  workflow_dispatch:
+permissions: {contents: write}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: tender-harvest-relay-20260812, fetch-depth: 0}
+      - run: python tools/build_spm_review_pack_v1.py
+      - run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_pipeline/analysis/spm_tender_discovery_v1/REVIEW_PACK.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add SPM tender discovery review pack'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
