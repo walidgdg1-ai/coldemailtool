@@ -1,0 +1,73 @@
+name: Build SPM tender discovery v1
+
+on:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-spm-tender-discovery-v1.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-spm-tender-discovery-v1
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download Core v4 tenders only
+        run: |
+          mkdir -p core out
+          gh release download tender-normalized-global-core-v4 --pattern historical_tenders.parquet --pattern data_quality.json --dir core --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json'))
+          c=q.get('counts',q.get('counts_notice_first',{}))
+          assert q['status']=='PASS' and c.get('historical_tenders')==2250547,(q,c)
+          print('DISCOVERY_INPUT_GATE_PASS',c['historical_tenders'])
+          PY
+      - name: Full-corpus tender discovery
+        run: python tools/build_spm_tender_discovery_v1.py --core core --out out
+      - name: QA
+        run: |
+          python - <<'PY'
+          import json,os
+          q=json.load(open('out/data_quality.json'))
+          assert q['status']=='PASS',q
+          assert q['source_tenders']==2250547,q
+          for f in ['spm_discovery_matrix.csv','top50_discovery.csv','top20_easy_money_proxy.csv','top20_ai_leverage.csv','top20_middleman_proxy.csv','recurring_buyers_by_niche.csv','representative_tenders.csv','data_discovered_cohorts.csv','entry_signal_mentions.csv','seasonality_by_niche.csv','country_niche_fit.csv','unmatched_high_lean_title_terms.csv','READOUT.md']:
+            assert os.path.exists('out/'+f),f
+          print('DISCOVERY_QA_PASS',q)
+          PY
+      - name: Publish release
+        run: |
+          TAG=tender-spm-tender-discovery-v1
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title 'Public Tender Intelligence — SPM Tender Discovery v1' --notes 'DERIVED full-corpus tender-only discovery over all 2,250,547 Core v4 notice-first tenders. Award pricing, bidder competition and winner fragmentation are intentionally deferred to targeted evidence drills on shortlisted niches.' --target tender-harvest-relay-20260812
+          fi
+          find out -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+      - name: Persist readable outputs
+        run: |
+          DEST=tender_pipeline/analysis/spm_tender_discovery_v1
+          mkdir -p "$DEST"
+          cp out/*.csv out/*.json out/*.md "$DEST"/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$DEST"
+          if ! git diff --cached --quiet; then
+            git commit -m 'Persist SPM tender discovery v1 outputs'
+            git pull --rebase origin tender-harvest-relay-20260812
+            git push origin HEAD:tender-harvest-relay-20260812
+          fi
