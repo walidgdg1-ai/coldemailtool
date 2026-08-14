@@ -1,0 +1,98 @@
+name: Build SPM deep tender intelligence materialized v4
+on:
+  workflow_dispatch:
+  push:
+    branches: [tender-harvest-relay-20260812]
+    paths: ['.github/workflows/tender-spm-deep-intelligence-materialized-v4.yml']
+permissions:
+  contents: write
+concurrency:
+  group: tender-spm-deep-intelligence-materialized-v4
+  cancel-in-progress: true
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tender-harvest-relay-20260812
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Free runner disk
+        run: |
+          set -euxo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo docker system prune -af || true
+          sudo apt-get clean || true
+          df -h /
+      - name: Install DuckDB
+        run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Apply audited analytical patches
+        run: |
+          python tools/patch_spm_deep_intelligence_v1.py
+          python tools/patch_spm_runner_limits.py
+          python tools/patch_spm_materialize_profiles.py
+          python -m py_compile tools/spm_niche_rules.py tools/build_spm_deep_intelligence_v1.py
+      - name: Download authoritative Core v4 and USA evidence lane
+        run: |
+          set -euo pipefail
+          mkdir -p core usa intel
+          for a in historical_tenders.parquet awards.parquet award_suppliers.parquet data_quality.json; do gh release download tender-normalized-global-core-v4 --pattern "$a" --dir core --clobber; done
+          gh release download tender-normalized-usa-awards-v1 --pattern market_rank.csv --pattern repeat_buyers.csv --dir usa --clobber
+          python - <<'PY'
+          import json
+          q=json.load(open('core/data_quality.json')); assert q['status']=='PASS',q
+          c=q.get('counts',q.get('counts_notice_first',{})); assert c['historical_tenders']==2250547 and c['awards']==4286784 and c['award_suppliers']==3937663,c
+          print('CORE_V4_ANALYSIS_GATE_PASS',c)
+          PY
+      - name: Full-corpus SPM analysis with sequential profile materialization
+        run: |
+          set -euo pipefail
+          python tools/build_spm_deep_intelligence_v1.py --core core --usa-rank usa/market_rank.csv --usa-repeat usa/repeat_buyers.csv --out intel
+          rm -rf intel/ducktmp || true
+          df -h /
+      - name: Validate outputs
+        run: |
+          python - <<'PY'
+          import json,csv,os
+          q=json.load(open('intel/data_quality.json')); assert q['status']=='PASS',q; assert q['source_core_tenders']==2250547,q
+          with open('intel/spm_opportunity_matrix.csv',newline='',encoding='utf-8') as f:n=sum(1 for _ in csv.reader(f))-1
+          assert n>=10,n
+          for x in ['top50_spm_opportunities.csv','top20_easiest_money.csv','top20_expected_profit.csv','top20_ai_leverage.csv','top20_middleman.csv','hidden_gem_candidates.csv','buyer_niche_monitor_rank.csv','top_winners_by_niche.csv','price_distribution_by_niche_currency.csv','representative_tenders_top_niches.csv','entry_requirement_signal_mentions.csv','seasonality_by_niche.csv','live_scoring_spec.json','QUANTITATIVE_READOUT.md']: assert os.path.exists('intel/'+x),x
+          print('SPM_INTELLIGENCE_QA_PASS',q)
+          PY
+      - name: Decision readback
+        run: |
+          echo '===== QUANTITATIVE READOUT ====='; cat intel/QUANTITATIVE_READOUT.md
+          echo '===== TOP50 ====='; head -n 51 intel/top50_spm_opportunities.csv
+          echo '===== EASIEST ====='; head -n 21 intel/top20_easiest_money.csv
+          echo '===== PROFIT ====='; head -n 21 intel/top20_expected_profit.csv
+          echo '===== AI ====='; head -n 21 intel/top20_ai_leverage.csv
+          echo '===== MIDDLEMAN ====='; head -n 21 intel/top20_middleman.csv
+          echo '===== HIDDEN GEMS ====='; head -n 51 intel/hidden_gem_candidates.csv
+          echo '===== RECURRING BUYERS ====='; head -n 61 intel/buyer_niche_monitor_rank.csv
+          echo '===== WINNERS ====='; head -n 61 intel/top_winners_by_niche.csv
+          echo '===== REPRESENTATIVE ====='; head -n 151 intel/representative_tenders_top_niches.csv
+          echo '===== PRICE ====='; head -n 201 intel/price_distribution_by_niche_currency.csv
+          echo '===== COUNTRIES ====='; cat intel/country_spm_fit.csv
+          echo '===== ENTRY ====='; cat intel/entry_requirement_signal_mentions.csv
+          echo '===== LIVE ====='; cat intel/live_scoring_spec.json
+      - name: Publish DERIVED release
+        run: |
+          set -euo pipefail
+          TAG='tender-spm-deep-intelligence-v1'
+          if ! gh release view "$TAG" >/dev/null 2>&1; then gh release create "$TAG" --title 'Public Tender Intelligence — SPM Deep Intelligence v1' --notes 'DERIVED full-corpus analytical layer over validated Global Core v4.' --target tender-harvest-relay-20260812; fi
+          find intel -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do gh release upload "$TAG" "$f" --clobber; done
+          gh release view "$TAG" --json tagName,url,assets,publishedAt
+      - name: Persist readable outputs in repo
+        run: |
+          set -euo pipefail
+          DEST='tender_pipeline/analysis/spm_deep_v1'; mkdir -p "$DEST"
+          for f in QUANTITATIVE_READOUT.md data_quality.json live_scoring_spec.json schema_profile.json spm_opportunity_matrix.csv top50_spm_opportunities.csv top20_easiest_money.csv top20_expected_profit.csv top20_ai_leverage.csv top20_middleman.csv hidden_gem_candidates.csv country_spm_fit.csv price_distribution_by_niche_currency.csv entry_requirement_signal_mentions.csv seasonality_by_niche.csv buyer_niche_monitor_rank.csv top_winners_by_niche.csv representative_tenders_top_niches.csv unmatched_high_lean_title_terms.csv; do [ -f "intel/$f" ] && cp "intel/$f" "$DEST/$f"; done
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'; git add "$DEST"
+          if ! git diff --cached --quiet; then git commit -m 'Persist SPM deep tender intelligence v1 outputs'; git pull --rebase origin tender-harvest-relay-20260812; git push origin HEAD:tender-harvest-relay-20260812; fi
