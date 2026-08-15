@@ -15,29 +15,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  profile-v3:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Download canonical Market Intelligence v3 inputs from this private repository
+      - name: Install streaming analytics dependency
+        run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download canonical historical warehouse and compact v3 analytics from this private repository
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p market-intelligence-v3
+          mkdir -p global-core-v4 market-intelligence-v3
+          gh release download tender-normalized-global-core-v4 \
+            --pattern 'historical_tenders.parquet' \
+            --dir global-core-v4
           gh release download tender-global-market-intelligence-v3 \
             --pattern '*.csv' \
             --dir market-intelligence-v3
+          test -s global-core-v4/historical_tenders.parquet
           count="$(find market-intelligence-v3 -maxdepth 1 -type f -name '*.csv' | wc -l)"
-          echo "downloaded_csv=$count"
+          echo "market_intelligence_v3_csv=$count"
           [ "$count" -ge 4 ]
-      - name: Profile exact schemas before building Market Brain v4
+      - name: Profile exact v3 schemas for durable lineage
         run: python tender_intelligence/profile_market_brain_inputs.py
+      - name: Build evidence-aware Market Brain v4 priors from Global Core
+        run: |
+          python tender_intelligence/build_market_brain_v4.py \
+            --historical global-core-v4/historical_tenders.parquet \
+            --out tender_intelligence/historical_market_priors_v4.json
+      - name: QA safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          p='tender_intelligence/historical_market_priors_v4.json'
+          x=json.load(open(p,encoding='utf-8'))
+          assert x['contract']=='TENDER_MARKET_BRAIN_PRIORS_V1',x
+          assert x['status']=='READY',x
+          s=x['safety']
+          assert s['pre_dce_only'] is True,s
+          assert s['affects_final_verdict'] is False,s
+          assert s['satisfies_dce_gates'] is False,s
+          assert s['cross_currency_aggregation'] is False,s
+          assert s['award_first_excluded_from_notice_priors'] is True,s
+          assert x['qa']['country_cpv_cells']>0,x['qa']
+          assert x['qa']['buyer_priors']>0,x['qa']
+          print(json.dumps(x['qa'],indent=2))
+          PY
       - name: Persist compact schema/profile checkpoint to Git
         shell: bash
         run: |
@@ -47,14 +78,30 @@ jobs:
           git add tender_intelligence/market_brain_input_profile.json
           if git diff --cached --quiet; then
             echo 'Profile unchanged'
-            exit 0
+          else
+            git commit -m "tenders: profile canonical inputs for Market Brain v4"
+            for attempt in 1 2 3 4; do
+              if git pull --rebase origin main && git push origin HEAD:main; then break; fi
+              git rebase --abort >/dev/null 2>&1 || true
+              [ "$attempt" -lt 4 ] || exit 1
+              sleep "$((attempt * 5))"
+            done
           fi
-          git commit -m "tenders: profile Market Intelligence v3 for Brain v4"
-          for attempt in 1 2 3 4; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
-              exit 0
-            fi
-            git rebase --abort >/dev/null 2>&1 || true
-            sleep "$((attempt * 5))"
-          done
-          exit 1
+      - name: Publish compact Market Brain v4 as authoritative derived analytics Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='tender-global-market-intelligence-v4'
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title 'Public Tender Intelligence — Market Brain v4' \
+              --notes 'Derived historical priors from canonical Global Core v4. Pre-DCE ranking evidence only; never satisfies bid eligibility or final verdict gates.'
+          fi
+          cp tender_intelligence/historical_market_priors_v4.json market-brain-v4.json
+          cp tender_intelligence/market_brain_input_profile.json market-brain-input-profile-v4.json
+          gh release upload "$tag" market-brain-v4.json market-brain-input-profile-v4.json --clobber
+          gh release view "$tag" --json assets --jq '.assets[].name' > /tmp/assets
+          grep -Fxq market-brain-v4.json /tmp/assets
+          grep -Fxq market-brain-input-profile-v4.json /tmp/assets
