@@ -1,0 +1,89 @@
+name: Tender Historical DCE Sample v1
+
+on:
+  workflow_dispatch:
+    inputs:
+      sample_size:
+        description: Stratified historical notices to select for DCE gate research
+        required: false
+        default: '10000'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-historical-dce-sample-v1
+  cancel-in-progress: false
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install streaming parquet reader only
+        run: python -m pip install --disable-pip-version-check -q duckdb
+      - name: Download canonical notice-first Global Core parquet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p historical-source
+          gh release download tender-normalized-global-core-v4 \
+            --pattern historical_tenders.parquet \
+            --dir historical-source
+          test -s historical-source/historical_tenders.parquet
+      - name: Fetch pinned public sampling logic from tender-engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 --retry-all-errors \
+            'https://raw.githubusercontent.com/walidgdg1-ai/tender-engine/16042250a327ed316d58fab8e38c7d3b8a7ed6a8/pipeline/historical_dce_sample_selector.py' \
+            -o historical_dce_sample_selector.py
+          python -m py_compile historical_dce_sample_selector.py
+      - name: Build stratified lean historical DCE research manifest
+        env:
+          LIMIT: ${{ github.event.inputs.sample_size || '10000' }}
+        run: |
+          python historical_dce_sample_selector.py \
+            --input historical-source/historical_tenders.parquet \
+            --out historical-dce-sample.jsonl \
+            --limit "$LIMIT" \
+            --min-score 5 \
+            --country-cap-share 0.20 \
+            --buyer-cap 20
+      - name: QA research-only contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          s=json.load(open('historical-dce-sample.jsonl.summary.json',encoding='utf-8'))
+          assert s['contract']=='HISTORICAL_DCE_SAMPLE_V1',s
+          assert s['selected']>0,s
+          assert s['final_verdict_allowed'] is False,s
+          assert len(s['countries'])>=3,s
+          print(json.dumps(s,indent=2))
+          PY
+      - name: Publish immutable historical DCE research sample
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='tender-historical-dce-sample-v1'
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title 'Tender Historical DCE Research Sample v1' \
+              --notes 'Stratified lean-service sample from canonical Global Core v4. Research/gate-prevalence only; never final tender verdicts.'
+          fi
+          gh release upload "$tag" \
+            historical-dce-sample.jsonl \
+            historical-dce-sample.jsonl.summary.json --clobber
+          gh release view "$tag" --json assets --jq '.assets[].name' > /tmp/assets
+          grep -Fxq historical-dce-sample.jsonl /tmp/assets
+          grep -Fxq historical-dce-sample.jsonl.summary.json /tmp/assets
