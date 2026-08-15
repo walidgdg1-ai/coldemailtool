@@ -1,0 +1,60 @@
+name: Tender Market Brain v4
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'TENDER_MARKET_BRAIN_TRIGGER.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tender-market-brain-v4
+  cancel-in-progress: false
+
+jobs:
+  profile-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download canonical Market Intelligence v3 inputs from this private repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p market-intelligence-v3
+          gh release download tender-global-market-intelligence-v3 \
+            --pattern '*.csv' \
+            --dir market-intelligence-v3
+          count="$(find market-intelligence-v3 -maxdepth 1 -type f -name '*.csv' | wc -l)"
+          echo "downloaded_csv=$count"
+          [ "$count" -ge 4 ]
+      - name: Profile exact schemas before building Market Brain v4
+        run: python tender_intelligence/profile_market_brain_inputs.py
+      - name: Persist compact schema/profile checkpoint to Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tender_intelligence/market_brain_input_profile.json
+          if git diff --cached --quiet; then
+            echo 'Profile unchanged'
+            exit 0
+          fi
+          git commit -m "tenders: profile Market Intelligence v3 for Brain v4"
+          for attempt in 1 2 3 4; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort >/dev/null 2>&1 || true
+            sleep "$((attempt * 5))"
+          done
+          exit 1
