@@ -1,0 +1,2 @@
+run=2026-08-15T16:20:00+02:00
+stage=profile-market-intelligence-v3-for-market-brain-v4
