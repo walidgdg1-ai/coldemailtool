@@ -1,0 +1,25 @@
+name: Hosted Runner Capacity Diagnostic
+
+on:
+  push:
+    branches:
+      - diag/hosted-runner-capacity
+    paths:
+      - '.github/workflows/runner-capacity-diagnostic.yml'
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        slot: [1, 2, 3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe runner assignment
+        run: |
+          echo "slot=${{ matrix.slot }}"
+          echo "runner=${{ runner.name }}"
+          date -u
+          sleep 20
