@@ -1,0 +1,35 @@
+name: Cancel Obsolete Capacity Diagnostics
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cancel-capacity-diagnostics.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Cancel diagnostic-only workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for run_id in 31991869550 31991029236 31991019892; do
+            echo "Cancel diagnostic run $run_id"
+            set +e
+            out=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" 2>&1)
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then
+              echo "DIAGNOSTIC_CANCEL_REQUESTED=$run_id"
+            else
+              echo "DIAGNOSTIC_CANCEL_NONFATAL=$run_id $out"
+            fi
+          done
