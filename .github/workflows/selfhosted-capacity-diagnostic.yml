@@ -1,0 +1,17 @@
+name: Self Hosted Capacity Diagnostic
+
+on:
+  push:
+    branches: [diag/hosted-runner-capacity]
+    paths:
+      - '.github/workflows/selfhosted-capacity-diagnostic.yml'
+
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - run: |
+          echo "runner=${{ runner.name }}"
+          echo "os=${{ runner.os }}"
+          echo "arch=${{ runner.arch }}"
