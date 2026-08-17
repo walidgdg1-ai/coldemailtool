@@ -13,15 +13,14 @@ jobs:
       fail-fast: false
       max-parallel: 3
       matrix:
-        slot: [1, 2, 3]
-    runs-on: ubuntu-latest
+        os: [ubuntu-latest, ubuntu-slim, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 3
     steps:
       - name: Probe runner assignment
+        shell: bash
         run: |
-          echo "slot=${{ matrix.slot }}"
+          echo "os=${{ matrix.os }}"
           echo "runner=${{ runner.name }}"
           date -u
           sleep 20
-
-# second-push trigger
