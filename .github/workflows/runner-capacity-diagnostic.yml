@@ -13,11 +13,12 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04, ubuntu-22.04, ubuntu-slim]
+        os: [ubuntu-24.04-arm, ubuntu-22.04-arm, windows-11-arm, ubuntu-slim]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 3
     steps:
       - name: Probe runner assignment
+        shell: bash
         run: |
           echo "os=${{ matrix.os }}"
           echo "runner=${{ runner.name }}"
